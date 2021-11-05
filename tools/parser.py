@@ -6,7 +6,7 @@ def parse() -> (str, str, int):
 
     parser.add_argument('APKFile', type=str, help='Path to the APK file to analyse')
     parser.add_argument('Class', type=str, help='Name of the class to analyse')
-    parser.add_argument('Flag', type=int, help='Type of analyse')
+    parser.add_argument('Flag', type=int, help='Type of analyse', choices=[1, 2, 3])
 
     args = parser.parse_args()
 
