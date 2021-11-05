@@ -1,0 +1,7 @@
+version: '3'
+services:
+  analyser:
+    build: .
+    container_name: AP_Analyser
+    restart: always
+    command: python -u main.py

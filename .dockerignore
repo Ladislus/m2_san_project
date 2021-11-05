@@ -1,0 +1,15 @@
+.git/
+.github/
+
+.idea/
+
+venv/
+__pycache__/
+
+.gitignore
+
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+.pylintrc
