@@ -2,6 +2,5 @@ version: '3'
 services:
   analyser:
     build: .
-    container_name: AP_Analyser
-    restart: always
-    command: python -u main.py
+    container_name: APK_Analyser
+    command: python3 -u main.py APKs/Tom.apk class 1
