@@ -1,7 +1,7 @@
 from androguard.core.bytecodes.dvm import ClassDefItem, DalvikVMFormat
 
-from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode
-from tools.extractor import InfoDict
+from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode, InfoDict
+from analyser import analyze1
 
 
 def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
@@ -19,7 +19,7 @@ def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) 
 def analyse(classDefItem: ClassDefItem, flag: int, infos: InfoDict, inputFile: str | None):
     match flag:
         case 1:
-            pass
+            analyze1(classDefItem, verbose=True)
         case 2:
             pass
         case 3:
