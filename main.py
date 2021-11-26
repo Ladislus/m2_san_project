@@ -16,20 +16,24 @@ def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) 
     return foundItems
 
 
-def analyse(classDefItem: ClassDefItem, flag: int, infosOfTheAPK: InfoDict):
+def analyse(classDefItem: ClassDefItem, flag: int, infos: InfoDict, inputFile: str | None):
     match flag:
         case 1:
             pass
         case 2:
             pass
         case 3:
+            # if inputFile is None:
+            #     print(f'No input file provided for analysis 3')
+            #     exit(ExitCode.NO_INPUT_FILE_GIVEN)
+            # analyse3(infos, inputFile)
             pass
         case _:
             raise ValueError('Invalid flag')
 
 
 if __name__ == '__main__':
-    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag = parse()
+    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile = parse()
     infosOfTheAPK: InfoDict = extract(pathToTheAPK)
 
     try:
@@ -41,7 +45,7 @@ if __name__ == '__main__':
                 print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
-        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK)
+        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile)
     except ClassDefItemNotFoundException as e:
         print(e)
         exit(ExitCode.CLASS_NOT_FOUND)
