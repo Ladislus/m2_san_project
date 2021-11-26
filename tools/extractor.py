@@ -1,6 +1,6 @@
+from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat
-
 from enum import Enum
 
 
@@ -17,7 +17,10 @@ class APKKeys(Enum):
     DALVIKVMFORMAT = 'APKDalvikVMFormat'
 
 
-def extract(APKPath: str) -> dict[APKKeys, APK | list[DalvikVMFormat] | dict]:
+InfoDict = dict[APKKeys, Any]
+
+
+def extract(APKPath: str) -> InfoDict:
     _apk = APK(APKPath)
 
     return {
