@@ -37,6 +37,8 @@ if __name__ == '__main__':
 
         if len(classDefItems) > 1:
             print('Multiple classes found')
+            for x in classDefItems:
+                print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
         analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK)
