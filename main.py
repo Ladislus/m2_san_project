@@ -1,18 +1,17 @@
 from androguard.core.bytecodes.dvm import ClassDefItem, DalvikVMFormat
-
 from analyser.engine import analyse
 from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode, InfoDict
 
 
-def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
+def findCorrespondingClass(_ClassName: str, _dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
     foundItems: list[ClassDefItem] = []
-    for dalvikFormat in dalvikFormats:
+    for dalvikFormat in _dalvikFormats:
         for currentClass in dalvikFormat.get_classes():
             cleanedName: str = currentClass.get_name().split('/')[-1][:-1]
-            if cleanedName == ClassName:
+            if cleanedName == _ClassName:
                 foundItems.append(currentClass)
     if len(foundItems) == 0:
-        raise ClassDefItemNotFoundException(f'Class "{ClassName}" not found')
+        raise ClassDefItemNotFoundException(f'Class "{_ClassName}" not found')
     return foundItems
 
 
@@ -29,7 +28,7 @@ if __name__ == '__main__':
                 print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
-        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile)
+        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile, _verbose=True)
     except ClassDefItemNotFoundException as e:
         print(e)
         exit(ExitCode.CLASS_NOT_FOUND)

@@ -1,6 +1,7 @@
 from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat
+from .exceptions import ExitCode
 from enum import Enum
 
 
@@ -20,20 +21,25 @@ class APKKeys(Enum):
 InfoDict = dict[APKKeys, Any]
 
 
-def extract(APKPath: str) -> InfoDict:
-    _apk = APK(APKPath)
+def extract(_APKPath: str) -> InfoDict:
+    try:
+        apk = APK(_APKPath)
 
-    return {
-        APKKeys.APK: _apk,
-        APKKeys.PATH: APKPath,
-        APKKeys.NAME: _apk.get_app_name(),
-        APKKeys.VERSION: _apk.get_target_sdk_version(),
-        APKKeys.PERMISSIONS: _apk.get_permissions(),
-        APKKeys.REQUESTEDPERMISSIONS: _apk.get_requested_permissions(),
-        APKKeys.DECLAREDPERMISSIONS: _apk.get_declared_permissions(),
-        APKKeys.DETAILEDDECLAREDPERMISSIONS: _apk.get_declared_permissions_details(),
-        APKKeys.ACTIVITIES: _apk.get_activities(),
-        APKKeys.DALVIKVMFORMAT: [
-            DalvikVMFormat(dex, using_api=_apk.get_target_sdk_version()) for dex in _apk.get_all_dex()
-        ]
-    }
+        return {
+            APKKeys.APK: apk,
+            APKKeys.PATH: _APKPath,
+            APKKeys.NAME: apk.get_app_name(),
+            APKKeys.VERSION: apk.get_target_sdk_version(),
+            APKKeys.PERMISSIONS: apk.get_permissions(),
+            APKKeys.REQUESTEDPERMISSIONS: apk.get_requested_permissions(),
+            APKKeys.DECLAREDPERMISSIONS: apk.get_declared_permissions(),
+            APKKeys.DETAILEDDECLAREDPERMISSIONS: apk.get_declared_permissions_details(),
+            APKKeys.ACTIVITIES: apk.get_activities(),
+            APKKeys.DALVIKVMFORMAT: [
+                DalvikVMFormat(dex, using_api=apk.get_target_sdk_version()) for dex in apk.get_all_dex()
+            ]
+        }
+
+    except FileNotFoundError as e:
+        print(e)
+        exit(ExitCode.FILE_NOT_FOUND)
