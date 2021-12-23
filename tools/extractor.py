@@ -1,6 +1,6 @@
 from typing import Any
 from androguard.core.bytecodes.apk import APK
-from androguard.core.bytecodes.dvm import DalvikVMFormat
+from androguard.core.bytecodes.dvm import DalvikVMFormat, EncodedMethod
 from .exceptions import ExitCode, exitException
 from enum import Enum
 
@@ -42,3 +42,26 @@ def extractInfosFromAPK(_APKPath: str) -> APKInfos:
 
     except FileNotFoundError as e:
         exitException(e, ExitCode.FILE_NOT_FOUND)
+
+
+class MethodKeys(Enum):
+    NAME = 'MethodName'
+    LOCALREGISTERCOUNT = 'MethodLocalRegisterCount'
+    REGISTERINFORMATIONS = 'MethodRegisterInformations'
+    PARAMETERCOUNT = 'MethodParameterCount'
+    RETURNTYPE = 'MethodReturnType'
+
+
+MethodInfos = dict[MethodKeys, Any]
+
+
+def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:
+    registerInformations = _method.get_information()
+
+    return {
+        MethodKeys.NAME: _method.get_name(),
+        MethodKeys.LOCALREGISTERCOUNT: _method.get_locals(),
+        MethodKeys.REGISTERINFORMATIONS: registerInformations,
+        MethodKeys.PARAMETERCOUNT: len(registerInformations['params']) if 'params' in registerInformations.keys() else 0,
+        MethodKeys.RETURNTYPE: registerInformations['return']
+    }

@@ -4,7 +4,7 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction22s, Instruction22t, Instruction23x, Instruction30t, Instruction31c, Instruction31t, Instruction35mi, \
     Instruction35ms, Instruction3rc, Instruction3rmi, Instruction3rms, Instruction40sc, Instruction41c, Instruction51l, \
     Instruction52c, Instruction5rc
-from tools import APKInfos, ExitCode
+from tools import APKInfos, ExitCode, MethodInfos
 from tools.exceptions import exitError
 
 
@@ -42,7 +42,7 @@ def inst11x(_instruction: Instruction11x, _infos: APKInfos):
     pass
 
 
-def analyse1(_currentInstruction: Instruction, _infos: APKInfos, _verbose: bool, **kwargs):
+def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos: MethodInfos, _verbose: bool, **kwargs):
 
     if _verbose:
         _printInstruction(_currentInstruction)
@@ -80,7 +80,7 @@ def analyse1(_currentInstruction: Instruction, _infos: APKInfos, _verbose: bool,
         # 1e -> `monitor-exit vAA`
         # 27 -> `throw vAA`
         case Instruction11x() as _inst11x:
-            inst11x(_inst11x, _infos)
+            inst11x(_inst11x, _apkInfos)
 
         # Instruction 12x:
         # 01 -> `move vA, vB`
@@ -142,7 +142,7 @@ def analyse1(_currentInstruction: Instruction, _infos: APKInfos, _verbose: bool,
         #   ce -> `div-double/2addr`
         #   cf -> `rem-double/2addr`
         case Instruction12x() as _inst12x:
-            inst12x(_inst12x, _infos)
+            inst12x(_inst12x, _apkInfos)
 
         # Instruction 20bc:
         # TODO https://source.android.com/devices/tech/dalvik/instruction-formats?hl=en#format-ids
