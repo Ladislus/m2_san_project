@@ -1,6 +1,6 @@
 from androguard.core.bytecodes.dvm import ClassDefItem, DalvikVMFormat
 from analyser.engine import analyse
-from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode, InfoDict
+from tools import parse, extractInfosFromAPK, APKKeys, ClassDefItemNotFoundException, ExitCode, APKInfos
 from tools.exceptions import exitError, exitException
 
 
@@ -18,7 +18,7 @@ def findCorrespondingClass(_ClassName: str, _dalvikFormats: list[DalvikVMFormat]
 
 if __name__ == '__main__':
     pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile, verbose = parse()
-    infosOfTheAPK: InfoDict = extract(pathToTheAPK)
+    infosOfTheAPK: APKInfos = extractInfosFromAPK(pathToTheAPK)
 
     try:
         classDefItems: list[ClassDefItem] = findCorrespondingClass(ClassNameToAnalyse, infosOfTheAPK[APKKeys.DALVIKVMFORMAT])

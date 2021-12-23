@@ -13,6 +13,7 @@ class ExitCode(Enum):
     MULTIPLE_CLASSES_FOUND = auto()
     NO_INPUT_FILE_GIVEN = auto()
     UNKNOWN_INSTRUCTION_TYPE = auto()
+    UNHANDLED_INSTRUCTION = auto()
 
 
 def exitError(_msg: str, _code: ExitCode):

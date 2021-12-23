@@ -3,10 +3,10 @@ from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod
 from analyser.analyse1 import analyse1
 from analyser.analyse2 import analyse2
 from analyser.analyse3 import analyse3
-from tools import InfoDict
+from tools import APKInfos
 
 
-def analyse(_classDefItem: ClassDefItem, _flag: int, _infos: InfoDict, _inputFile: str | None, _verbose: bool):
+def analyse(_classDefItem: ClassDefItem, _flag: int, _infos: APKInfos, _inputFile: str | None, _verbose: bool):
     func = analyse1 if _flag == 1 else analyse2 if _flag == 2 else analyse3
 
     methods: list[EncodedMethod] = _classDefItem.get_methods()

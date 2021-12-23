@@ -18,10 +18,10 @@ class APKKeys(Enum):
     DALVIKVMFORMAT = 'APKDalvikVMFormat'
 
 
-InfoDict = dict[APKKeys, Any]
+APKInfos = dict[APKKeys, Any]
 
 
-def extract(_APKPath: str) -> InfoDict:
+def extractInfosFromAPK(_APKPath: str) -> APKInfos:
     try:
         apk = APK(_APKPath)
 
