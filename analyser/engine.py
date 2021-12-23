@@ -6,7 +6,7 @@ from analyser.analyse3 import analyse3
 from tools import InfoDict
 
 
-def analyse(_classDefItem: ClassDefItem, _flag: int, _infos: InfoDict, _inputFile: str | None, _verbose: bool = False):
+def analyse(_classDefItem: ClassDefItem, _flag: int, _infos: InfoDict, _inputFile: str | None, _verbose: bool):
     func = analyse1 if _flag == 1 else analyse2 if _flag == 2 else analyse3
 
     methods: list[EncodedMethod] = _classDefItem.get_methods()
@@ -33,9 +33,11 @@ def analyse(_classDefItem: ClassDefItem, _flag: int, _infos: InfoDict, _inputFil
 
         for instruction in currentMethod.get_instructions():
             if _verbose:
-                print(f'\tInstruction : {instruction}')
-                print(f'\t\tName of instruction : {instruction.get_name()}')
-                print(f'\t\tInt op value : {hex(instruction.get_op_value())}')
-                print(f'\t\tHex : {instruction.get_hex()}')
-            func(instruction, _infos)
-        currentMethod.show()
+                print(
+                    f'\tInstruction : {instruction}\n'
+                    f'\t\tName of instruction : {instruction.get_name()}\n'
+                    f'\t\tInt op value : {hex(instruction.get_op_value())}\n'
+                    f'\t\tHex : {instruction.get_hex()}\n'
+                )
+                currentMethod.show()
+            func(instruction, _infos, _verbose)

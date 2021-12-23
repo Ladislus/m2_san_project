@@ -1,7 +1,7 @@
 from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat
-from .exceptions import ExitCode
+from .exceptions import ExitCode, exitException
 from enum import Enum
 
 
@@ -41,5 +41,4 @@ def extract(_APKPath: str) -> InfoDict:
         }
 
     except FileNotFoundError as e:
-        print(e)
-        exit(ExitCode.FILE_NOT_FOUND)
+        exitException(e, ExitCode.FILE_NOT_FOUND)
