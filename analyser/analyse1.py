@@ -365,14 +365,14 @@ def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos
             _unhandled(_inst32x)
 
         # Instruction35c:
-        # 24 : filled-new-array {vC, vD, vE, vF, vG}, type@BBBB
+        # 24 -> `filled-new-array {vC, vD, vE, vF, vG}, type@BBBB`
         # invoke-kind {vC, vD, vE, vF, vG}, meth@BBBB
         #   6e -> `invoke-virtual`
         #   6f -> `invoke-super`
         #   70 -> `invoke-direct`
         #   71 -> `invoke-static`
         #   72 -> `invoke-interface`
-        # fc : invoke-custom {vC, vD, vE, vF, vG}, call_site@BBBB
+        # fc -> `invoke-custom {vC, vD, vE, vF, vG}, call_site@BBBB`
         case Instruction35c() as _inst35c:
             _unhandled(_inst35c)
 
@@ -387,14 +387,14 @@ def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos
             _unhandled(_inst35ms)
 
         # Instruction3rc:
-        # 25 : filled-new-array/range {vCCCC .. vNNNN}, type@BBBB
+        # 25 -> `filled-new-array/range {vCCCC .. vNNNN}, type@BBBB`
         # invoke-kind/range {vCCCC .. vNNNN}, meth@BBBB
         #   74 -> invoke-virtual/range
         #   75 -> invoke-super/range
         #   76 -> invoke-direct/range
         #   77 -> invoke-static/range
         #   78 -> invoke-interface/range
-        # fd : invoke-custom/range {vCCCC .. vNNNN}, call_site@BBBB
+        # fd -> `invoke-custom/range {vCCCC .. vNNNN}, call_site@BBBB`
         case Instruction3rc() as _inst3rc:
             _unhandled(_inst3rc)
 
