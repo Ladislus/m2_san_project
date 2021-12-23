@@ -1,7 +1,9 @@
 from enum import Enum, auto
 
+
 class ClassDefItemNotFoundException(Exception):
     pass
+
 
 class ExitCode(Enum):
     EXIT_SUCCESS = 0
