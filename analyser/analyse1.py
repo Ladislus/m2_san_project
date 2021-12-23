@@ -34,16 +34,33 @@ def _printInstruction(_inst: Instruction):
     print(f'Instruction { _inst.get_name() } (OP: { hex(_inst.get_op_value()) })')
 
 
-def inst12x(_instruction: Instruction12x, _infos: APKInfos):
+def analyse10x(_instruction: Instruction10x, _infos: APKInfos):
     pass
 
 
-def inst11x(_instruction: Instruction11x, _infos: APKInfos):
+def analyse12x(_instruction: Instruction12x, _infos: APKInfos):
     pass
 
 
-def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos: MethodInfos, _verbose: bool, **kwargs):
+def analyse11x(_instruction: Instruction11x, _infos: APKInfos):
+    pass
 
+
+def analyse1(
+        _currentInstruction: Instruction,
+        _apkInfos: APKInfos,
+        _methodInfos: MethodInfos,
+        _verbose: bool,
+        **kwargs
+) -> None:
+    """
+    Main method that analyse the given instruction by redirecting it to the corresponding method.
+    :param _currentInstruction: The instruction to analyse
+    :param _apkInfos: The informations extracted from the APK
+    :param _methodInfos: The informations extracted from the current method
+    :param _verbose: Versbose mode
+    :param kwargs: Additionnal arguments
+    """
     if _verbose:
         _printInstruction(_currentInstruction)
 
@@ -80,7 +97,7 @@ def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos
         # 1e -> `monitor-exit vAA`
         # 27 -> `throw vAA`
         case Instruction11x() as _inst11x:
-            inst11x(_inst11x, _apkInfos)
+            analyse11x(_inst11x, _apkInfos)
 
         # Instruction 12x:
         # 01 -> `move vA, vB`
@@ -142,7 +159,7 @@ def analyse1(_currentInstruction: Instruction, _apkInfos: APKInfos, _methodInfos
         #   ce -> `div-double/2addr`
         #   cf -> `rem-double/2addr`
         case Instruction12x() as _inst12x:
-            inst12x(_inst12x, _apkInfos)
+            analyse12x(_inst12x, _apkInfos)
 
         # Instruction 20bc:
         # TODO https://source.android.com/devices/tech/dalvik/instruction-formats?hl=en#format-ids
