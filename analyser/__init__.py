@@ -1,1 +1,1 @@
-from .engine import analyze1
+from .engine import analyse
