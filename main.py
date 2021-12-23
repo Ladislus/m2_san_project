@@ -1,7 +1,7 @@
 from androguard.core.bytecodes.dvm import ClassDefItem, DalvikVMFormat
 
+from analyser.engine import analyse
 from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode, InfoDict
-from analyser import analyze1
 
 
 def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
@@ -14,22 +14,6 @@ def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) 
     if len(foundItems) == 0:
         raise ClassDefItemNotFoundException(f'Class "{ClassName}" not found')
     return foundItems
-
-
-def analyse(classDefItem: ClassDefItem, flag: int, infos: InfoDict, inputFile: str | None):
-    match flag:
-        case 1:
-            analyze1(classDefItem, verbose=True)
-        case 2:
-            pass
-        case 3:
-            # if inputFile is None:
-            #     print(f'No input file provided for analysis 3')
-            #     exit(ExitCode.NO_INPUT_FILE_GIVEN)
-            # analyse3(infos, inputFile)
-            pass
-        case _:
-            raise ValueError('Invalid flag')
 
 
 if __name__ == '__main__':
