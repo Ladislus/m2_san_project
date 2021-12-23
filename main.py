@@ -16,7 +16,7 @@ def findCorrespondingClass(_ClassName: str, _dalvikFormats: list[DalvikVMFormat]
 
 
 if __name__ == '__main__':
-    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile = parse()
+    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile, verbose = parse()
     infosOfTheAPK: InfoDict = extract(pathToTheAPK)
 
     try:
@@ -28,7 +28,7 @@ if __name__ == '__main__':
                 print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
-        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile, _verbose=True)
+        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile, _verbose=verbose)
     except ClassDefItemNotFoundException as e:
         print(e)
         exit(ExitCode.CLASS_NOT_FOUND)
