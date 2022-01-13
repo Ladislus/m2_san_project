@@ -14,6 +14,12 @@ class ExitCode(Enum):
     NO_INPUT_FILE_GIVEN = auto()
     UNKNOWN_INSTRUCTION_TYPE = auto()
     UNHANDLED_INSTRUCTION = auto()
+    INVALID_REGISTER_NUMBER = auto()
+    UNHANDLED_CASE = auto()
+    CHECKCAST_AGAINST_PRIMITIVE = auto()
+    CAST_ERROR = auto()
+    ANALYSE_NOT_IMPLEMENTED = auto()
+    BASE_CLASS_CALL = auto()
 
 
 def exitError(_msg: str, _code: ExitCode):
