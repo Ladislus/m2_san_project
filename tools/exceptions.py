@@ -16,10 +16,17 @@ class ExitCode(Enum):
     UNHANDLED_INSTRUCTION = auto()
     INVALID_REGISTER_NUMBER = auto()
     UNHANDLED_CASE = auto()
-    CHECKCAST_AGAINST_PRIMITIVE = auto()
+    CHECKCAST_AGAINST_PRIMITIVE_OR_NONE = auto()
     CAST_ERROR = auto()
     ANALYSE_NOT_IMPLEMENTED = auto()
     BASE_CLASS_CALL = auto()
+    INVALID_SUBCLASS = auto()
+    ANALYSIS_NOT_FOUND = auto()
+    MISCMATCH_PARAMETER_TYPE = auto()
+    PARAMETER_COUNT_MISMATCH = auto()
+    MISSING_INVOKE_KIND_OR_FILL_NEW_ARRAY = auto()
+    MOVE_RESULT_ON_EMPTY_STACK = auto()
+    UNREACHABLE = auto()
 
 
 def exitError(_msg: str, _code: ExitCode):
