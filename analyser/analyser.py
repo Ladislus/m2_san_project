@@ -180,9 +180,10 @@ class Analyser:
     @staticmethod
     def _getInvokeProvidedParameters(_instruction: InvokeType) -> list[int]:
         candidate: list[int] = []
-
+        # _instruction.A contains the parameter count
         argumentsLength: int = _instruction.A
 
+        # If the count allow it, add the given parameter
         if argumentsLength >= 1:
             candidate.append(_instruction.C)
         if argumentsLength >= 2:
