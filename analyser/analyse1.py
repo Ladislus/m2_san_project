@@ -5,7 +5,7 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction22s, Instruction22t, Instruction23x, Instruction30t, Instruction31c, Instruction31t, Instruction35mi, \
     Instruction35ms, Instruction3rc, Instruction3rmi, Instruction3rms, Instruction40sc, Instruction41c, Instruction51l, \
     Instruction52c, Instruction5rc
-from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, SMALI_BOOLEAN_TYPE, PRIMITIVE_TYPES, \
+from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, \
     SMALI_STRING_TYPE, \
     SMALI_INT_TYPE, SMALI_VOID_TYPE
 from analyser.analyser import Analyse1MemoryType, Analyser, Analyse1StackType
@@ -42,95 +42,75 @@ class Analyse1(Analyser):
         self._lastWasInvokeKindOrFillNewArray = True
         match _instruction.get_name():
             case 'invoke-direct' | 'invoke-virtual':
-                pass
-                # # Retrieved the parameters
-                # params: list[str] = _instruction.get_output().split(', ')
-                # # Extract the 'this' register (first one)
-                # thisRegister: str = params[0]
-                # thisContent: str = self._getRegisterContent(int(thisRegister))
-                # # Extract the called method
-                # calledMethod: str = params[-1]
-                # # Remove extracted pieces out of the the parameter list
-                # params = params[1:-1]
-                # # Decompose the called parameters
-                # baseClass, methodName, methodParams, returnType = self._decomposeInvoke(calledMethod)
-                #
-                # _classManager = _instruction.cm
-                # _calledMethod = _classManager.get_method(_instruction.BBBB)
-                # print(_classManager)
-                #
-                # # FIXME
-                # # Check if the class is a subclass of the class containing the called method
-                # # if not self._isSubclass(thisContent, baseClass):
-                # #     exitError(f'Class {thisContent} is not a subclass of {baseClass}', ExitCode.INVALID_SUBCLASS)
-                #
-                # # Check if the number of paramters is correct
-                # if len(params) != len(methodParams):
-                #     exitError(f'Method {methodName} requires {len(methodParams)}, but {len(params)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
-                #
-                # # Check parameters consistency
-                # for index, param in enumerate(params):
-                #     # Get the register number
-                #     register = self._registerNameToIndex(param)
-                #     # Check if the register number is valid
-                #     if not self._isValidRegisterNumber(register):
-                #         self._Error_invalidRegisterNumber(_instruction, register)
-                #     # Check if the content of the given register match the parameter type
-                #     registerContent = self._getRegisterContent(param)
-                #     # FIXME
-                #     # if (
-                #     #         # The Oject is not a subclass of the parameter type
-                #     #         (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
-                #     #         # Parameter has wrong primitive type
-                #     #         or registerContent != methodParams[index]
-                #     # ):
-                #     #     exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
-                #
-                # # If the method dosen't return void, push the return value to the stack
-                # if returnType != 'V':
-                #     self._stack.append(returnType)
-            # TODO
-            case 'invoke-static':
                 # Retrieved the parameters
-                params: list[str] = _instruction.get_output().split(', ')
-                # Extract the called method
-                calledMethod: str = params[-1]
-                # Remove extracted pieces out of the the parameter list
-                params = params[:-1]
-                # Decompose the called parameters
-                baseClass, methodName, methodParams, returnType = self._decomposeInvoke(calledMethod)
+                providedParameters: list[int] = self._getInvokeProvidedParameters(_instruction)
+                # Extract the 'this' register (first one)
+                thisRegisterIndex: int = providedParameters.pop(0)
+                thisRegisterContent: str = self._getRegisterContent(thisRegisterIndex)
+                # Decompose the called method
+                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(_instruction)
 
-                _classManager = _instruction.cm
-                _calledMethod = _classManager.get_method(_instruction.BBBB)
-                print(_classManager)
+                # Check if the class is a subclass of the class containing the called method
+                if not self._isSubclass(thisRegisterContent, calledMethodClass):
+                    exitError(f'Class {thisRegisterContent} is not a subclass of {calledMethodClass}', ExitCode.INVALID_SUBCLASS)
 
                 # Check if the number of paramters is correct
-                if len(params) != len(methodParams):
-                    exitError(f'Method {methodName} requires {len(methodParams)}, but {len(params)} given',
-                              ExitCode.PARAMETER_COUNT_MISMATCH)
+                if len(providedParameters) != len(calledMethodParameters):
+                    exitError(f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
 
                 # Check parameters consistency
-                for index, param in enumerate(params):
-                    # Get the register number
-                    register = self._registerNameToIndex(param)
+                for parameterRegisterIndex, parameterRegisterContent in enumerate(providedParameters):
                     # Check if the register number is valid
-                    if not self._isValidRegisterNumber(register):
-                        self._Error_invalidRegisterNumber(_instruction, register)
+                    if not self._isValidRegisterNumber(parameterRegisterIndex):
+                        self._Error_invalidRegisterNumber(_instruction, parameterRegisterIndex)
                     # Check if the content of the given register match the parameter type
-                    registerContent = self._getRegisterContent(param)
-                    # FIXME
-                    # if (
-                    #         # The Oject is not a subclass of the parameter type
-                    #         (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
-                    #         # Parameter has wrong primitive type
-                    #         or registerContent != methodParams[index]
-                    # ):
-                    #     exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}',
-                    #               ExitCode.MISCMATCH_PARAMETER_TYPE)
+                    parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
+                    if (
+                            # The Oject is not a subclass of the parameter type
+                            (calledMethodParameters[parameterRegisterIndex].startswith('L') and not self._isSubclass(parameterRegisterContent, calledMethodParameters[parameterRegisterIndex]))
+                            # Parameter has wrong primitive type
+                            or parameterRegisterContent != calledMethodParameters[parameterRegisterIndex]
+                    ):
+                        exitError(f'Parameter {parameterRegisterContent} has type {parameterRegisterContent} instead of {calledMethodParameters[parameterRegisterIndex]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
 
                 # If the method dosen't return void, push the return value to the stack
-                if returnType != 'V':
-                    self._stack.append(returnType)
+                if calledMethodReturn != SMALI_VOID_TYPE:
+                    self._stack.append(calledMethodReturn)
+            case 'invoke-static':
+                # Retrieved the parameters
+                providedParameters: list[int] = self._getInvokeProvidedParameters(_instruction)
+                # Decompose the called method
+                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(
+                    _instruction)
+
+                    # Check if the number of paramters is correct
+                if len(providedParameters) != len(calledMethodParameters):
+                    exitError(
+                        f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given',
+                        ExitCode.PARAMETER_COUNT_MISMATCH)
+
+                    # Check parameters consistency
+                for parameterRegisterIndex, parameterRegisterContent in enumerate(providedParameters):
+                    # Check if the register number is valid
+                    if not self._isValidRegisterNumber(parameterRegisterIndex):
+                        self._Error_invalidRegisterNumber(_instruction, parameterRegisterIndex)
+                    # Check if the content of the given register match the parameter type
+                    parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
+                    if (
+                            # The Oject is not a subclass of the parameter type
+                            (calledMethodParameters[parameterRegisterIndex].startswith('L') and not self._isSubclass(
+                                parameterRegisterContent, calledMethodParameters[parameterRegisterIndex]))
+                            # Parameter has wrong primitive type
+                            or parameterRegisterContent != calledMethodParameters[parameterRegisterIndex]
+                    ):
+                        exitError(
+                            f'Parameter {parameterRegisterContent} has type {parameterRegisterContent} instead of {calledMethodParameters[parameterRegisterIndex]}',
+                            ExitCode.MISCMATCH_PARAMETER_TYPE)
+
+                    # If the method dosen't return void, push the return value to the stack
+                if calledMethodReturn != SMALI_VOID_TYPE:
+                    self._stack.append(calledMethodReturn)
+            # TODO
             case err:
                 exitError(f'Unhandled instruction35c subtype {err}', ExitCode.UNHANDLED_CASE)
 
@@ -184,7 +164,7 @@ class Analyse1(Analyser):
 
     # TODO
     def _analyse11x(self, _instruction: Instruction11x) -> None:
-        # Get the register name
+        # Get the register index
         registerIndex: int = _instruction.AA
         match _instruction.get_name():
             case 'move-result-object':

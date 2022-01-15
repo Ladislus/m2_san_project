@@ -1,5 +1,5 @@
 from androguard.core.analysis.analysis import Analysis
-from androguard.core.bytecodes.dvm import Instruction, Instruction3rc, Instruction35c, ClassManager
+from androguard.core.bytecodes.dvm import Instruction, Instruction3rc, Instruction35c
 from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys
 
 # Type aliases for analysis
@@ -155,11 +155,6 @@ class Analyser:
 
     # UTILS
 
-    # TODO
-    @staticmethod
-    def _findOperand(_instruction: Instruction, _index: int) -> str:
-        return str(_instruction.get_output().split(', ')[_index])
-
     @staticmethod
     def _getParametersTypeFromString(string: str) -> list[str]:
         """
@@ -170,9 +165,9 @@ class Analyser:
         # Remove parenthesis
         parametersString = string[1:-1]
         # Split by ' '
-        return parametersString.split(' ')
+        return [parameter.strip() for parameter in parametersString.split(' ') if parameter]
 
-    def _decomposeInvoke(self, _instruction: InvokeType) -> MethodCallInfosType:
+    def _decomposeInvokedMethod(self, _instruction: InvokeType) -> MethodCallInfosType:
         """
         Method that decompose a call methode (ex: Lcom/example/ex2test/MainActivity;->findViewById(I)Landroid/view/View;)
         into 4 separated components: (Class, Method name, list of parameters type, return type)
@@ -181,6 +176,25 @@ class Analyser:
         """
         calledMethodInformations = _instruction.cm.get_method(_instruction.BBBB)
         return calledMethodInformations[0], calledMethodInformations[1], self._getParametersTypeFromString(calledMethodInformations[2][0]), calledMethodInformations[2][1]
+
+    @staticmethod
+    def _getInvokeProvidedParameters(_instruction: InvokeType) -> list[int]:
+        candidate: list[int] = []
+
+        argumentsLength: int = _instruction.A
+
+        if argumentsLength >= 1:
+            candidate.append(_instruction.C)
+        if argumentsLength >= 2:
+            candidate.append(_instruction.D)
+        if argumentsLength >= 3:
+            candidate.append(_instruction.E)
+        if argumentsLength >= 4:
+            candidate.append(_instruction.F)
+        if argumentsLength >= 5:
+            candidate.append(_instruction.G)
+
+        return candidate
 
     # ERRORS
 

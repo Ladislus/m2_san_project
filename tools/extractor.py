@@ -108,7 +108,7 @@ def _humanParameterTypeToSmaliType(_type: (int, str)) -> (int, str):
     elif _type[1] == HUMAN_DOUBLE_TYPE:
         return _type[0], SMALI_DOUBLE_TYPE
     else:
-        return _type[0], 'L' + _type[1] + ';'
+        return _type[0], 'L' + _type[1].replace('.', '/') + ';'
 
 
 def _humanTypeToSmaliType(_type: str) -> str:
@@ -131,7 +131,7 @@ def _humanTypeToSmaliType(_type: str) -> str:
     elif _type == HUMAN_DOUBLE_TYPE:
         return SMALI_DOUBLE_TYPE
     else:
-        return 'L' + _type + ';'
+        return 'L' + _type.replace('.', '/') + ';'
 
 
 def _humanParametersTypesToSmaliTypes(_types: list[(int, str)]) -> list[(int, str)]:
