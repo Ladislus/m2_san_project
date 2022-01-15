@@ -1,19 +1,18 @@
 from androguard.core.analysis.analysis import Analysis
 from androguard.core.bytecodes.dvm import Instruction
-
 from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys
 
 # Type alias for better lisibility
-Analyse1MemoryType = list[None | str]
-Analyse1StackType = list[str]
+Analyse1MemoryType: type = list[None or str]
+Analyse1StackType: type = list[str]
 
 # TODO
-Analyse2MemoryType = list[None | bool]
-Analyse2StackType = list[str]
+Analyse2MemoryType: type = list[None or bool]
+Analyse2StackType: type = list[str]
 
 # Type union
-AnalyseMemoryType = Analyse1MemoryType | Analyse2MemoryType
-AnalyseStackType = Analyse1StackType | Analyse2StackType
+AnalyseMemoryType: type = Analyse1MemoryType or Analyse2MemoryType
+AnalyseStackType: type = Analyse1StackType or Analyse2StackType
 
 
 PRIMITIVE_TYPES_STR: list[str] = ["V", "Z", "B", "S", "C", "I", "J", "F", "D"]
