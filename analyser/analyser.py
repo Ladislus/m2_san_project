@@ -1,12 +1,10 @@
 from androguard.core.analysis.analysis import Analysis
-from androguard.core.bytecodes.dvm import Instruction
+from androguard.core.bytecodes.dvm import Instruction, Instruction3rc, Instruction35c, ClassManager
 from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys
 
-# Type alias for better lisibility
+# Type aliases for analysis
 Analyse1MemoryType: type = list[None or str]
 Analyse1StackType: type = list[str]
-
-# TODO
 Analyse2MemoryType: type = list[None or bool]
 Analyse2StackType: type = list[str]
 
@@ -14,9 +12,9 @@ Analyse2StackType: type = list[str]
 AnalyseMemoryType: type = Analyse1MemoryType or Analyse2MemoryType
 AnalyseStackType: type = Analyse1StackType or Analyse2StackType
 
-
-PRIMITIVE_TYPES_STR: list[str] = ["V", "Z", "B", "S", "C", "I", "J", "F", "D"]
-STRING_TYPE: str = 'Ljava/lang/String;'
+# Type aliases for utility methods
+InvokeType: type = Instruction35c or Instruction3rc
+MethodCallInfosType: type = tuple[str, str, list[str], str]
 
 
 class Analyser:
@@ -41,6 +39,24 @@ class Analyser:
 
     def reportMethod(self):
         exitError('Method `reportMethod()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
+
+    # CHECKERS
+
+    def _isValidRegisterNumber(self, _registerIndex: int) -> bool:
+        """
+        Method to check if a register number is valid.
+        :param _registerIndex: The register number
+        :return: Boolean
+        """
+        return _registerIndex < self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] + self._methodInfos[MethodKeys.PARAMETERCOUNT]
+
+    def _isValidLocalRegisterNumber(self, _registerIndex: int) -> bool:
+        """
+        Method to check if a register number is valid.
+        :param _registerIndex: The register number
+        :return: Boolean
+        """
+        return _registerIndex < self._methodInfos[MethodKeys.LOCALREGISTERCOUNT]
 
     # FIXME
     def _isSubclass(self, _className: str, _superclassName: str) -> bool:
@@ -86,16 +102,19 @@ class Analyser:
         # If we went through all parents without finding the correct name, return false (Can't be
         exitError(f'Shouldn\'t reached the end of the while in "_isSubclass({_className}, {_superclassName})', ExitCode.UNREACHABLE)
 
-    def _registerContent(self, _registerName: str) -> str | bool:
-        return self._mem[self._registerNameToIndex(_registerName)]
+    # GETTERS
 
-    def _validRegisterNumber(self, _registerNumber: int) -> bool:
+    def _getRegisterContent(self, _registerIndex: int) -> str | None:
         """
-        Method to check if a register number is valid.
-        :param _registerNumber: The register number
-        :return: Boolean
+        Return the content of a register given it's index
+        :param _registerIndex: The index of the register
+        :return: A string representing the type of content, None if empty
         """
-        return _registerNumber < self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] + self._methodInfos[MethodKeys.PARAMETERCOUNT]
+        if not self._isValidRegisterNumber(_registerIndex):
+            exitError(f'Invalid register index {_registerIndex}', ExitCode.INVALID_REGISTER_INDEX)
+        return self._mem[_registerIndex]
+
+    # ANALYSIS
 
     @staticmethod
     def _unhandled(_instruction: Instruction) -> None:
@@ -112,6 +131,8 @@ class Analyser:
         """
         if self._verbose:
             print(f'Instruction {_instruction.get_name()} (OP: {hex(_instruction.get_op_value())}) shouldn\'t be analysed')
+
+    # DEBUG
 
     @staticmethod
     def _printInstruction(_instruction: Instruction) -> None:
@@ -132,79 +153,36 @@ class Analyser:
         print(f'\tMemory:')
         [print(f'\t\tv{x}: {self._mem[x]}') for x in range(len(self._mem))]
 
-    def _validLocalRegisterNumber(self, _registerNumber: int) -> bool:
-        """
-        Method to check if a register number is valid.
-        :param _registerNumber: The register number
-        :return: Boolean
-        """
-        return _registerNumber < self._methodInfos[MethodKeys.LOCALREGISTERCOUNT]
+    # UTILS
 
+    # TODO
     @staticmethod
     def _findOperand(_instruction: Instruction, _index: int) -> str:
         return str(_instruction.get_output().split(', ')[_index])
 
     @staticmethod
-    def _registerNameToIndex(_registerName: str) -> int:
-        try:
-            return int(_registerName[1:])
-        except ValueError as e:
-            exitError(f'Cannot convert {_registerName[1:]} to int ({e})', ExitCode.CAST_ERROR)
-
-    @staticmethod
-    def _classFromMethodCall(string: str) -> str:
-        return string.split('->')[0]
-
-    @staticmethod
-    def _methodFromMethodCall(string: str) -> str:
-        return string.split('->')[1].split('(')[0]
-
-    @staticmethod
-    def _parametersTypeFromMethodCall(string: str) -> list[str]:
+    def _getParametersTypeFromString(string: str) -> list[str]:
         """
         Decompose a method call into its parameters types.
-        :param string: The method call string
+        :param string: The string representing the parameters type
         :return: list[str] containing types
         """
-        # Initialise memory
-        candidate: list[str] = []
-        # Retrieve pameters into a list
-        params = string.split('(')[1].split(')')[0]
-        # Split by ';' (to separate objects)
-        params = [p.strip() for p in params.split(';')]
-        for param in params:
+        # Remove parenthesis
+        parametersString = string[1:-1]
+        # Split by ' '
+        return parametersString.split(' ')
 
-            # If it's an object, add it to the parameters types list
-            if param.startswith('L'):
-                candidate.append(param.strip() + ';')
-            # Else
-            else:
-                # Decompose the parameters into single elements
-                while len(param) > 0:
-                    if param.startswith('L'):
-                        candidate.append(param.strip() + ';')
-                        break
-                    else:
-                        extracted = param[0]
-                        candidate.append(extracted)
-                        param = param[1:]
-        # Return the parameters types list
-        return candidate
-
-    @staticmethod
-    def _returnTypeFromMethodCall(string: str) -> str:
-        return string.split(')')[1]
-
-    def _decomposeMethodCall(self, string: str) -> (str, str, list[str], str):
+    def _decomposeInvoke(self, _instruction: InvokeType) -> MethodCallInfosType:
         """
         Method that decompose a call methode (ex: Lcom/example/ex2test/MainActivity;->findViewById(I)Landroid/view/View;)
         into 4 separated components: (Class, Method name, list of parameters type, return type)
-        :param string: The method call string
+        :param _instruction: The instruction to decompose
         :return: A tuple containing the 4 components (Class: str, Method name: str, parameters type: list[str], return type: str)
         """
-        return self._classFromMethodCall(string), self._methodFromMethodCall(string), self._parametersTypeFromMethodCall(string), self._returnTypeFromMethodCall(string)
+        calledMethodInformations = _instruction.cm.get_method(_instruction.BBBB)
+        return calledMethodInformations[0], calledMethodInformations[1], self._getParametersTypeFromString(calledMethodInformations[2][0]), calledMethodInformations[2][1]
 
-    # ERRORS #
+    # ERRORS
 
     @staticmethod
     def _Error_invalidRegisterNumber(_instruction: Instruction, _register: int):

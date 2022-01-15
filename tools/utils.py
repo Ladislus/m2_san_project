@@ -1,7 +1,7 @@
 from androguard.core.bytecodes.dvm import Instruction30t, Instruction20t, Instruction10t, Instruction22t, Instruction21t
+from .exceptions import ExitCode, exitError
 
-from tools import exitError, ExitCode
-
+# Type aliases
 GotoType: type = Instruction10t or Instruction20t or Instruction30t
 IfType: type = Instruction21t or Instruction22t
 
@@ -26,3 +26,6 @@ def getOffsetFromIf(_instruction: IfType) -> int:
             return _currentInstruction.CCCC
         case err:
             exitError(f'Unknown instruction type: {err}', ExitCode.UNKNOWN_INSTRUCTION_TYPE)
+
+
+

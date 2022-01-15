@@ -5,8 +5,10 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction22s, Instruction22t, Instruction23x, Instruction30t, Instruction31c, Instruction31t, Instruction35mi, \
     Instruction35ms, Instruction3rc, Instruction3rmi, Instruction3rms, Instruction40sc, Instruction41c, Instruction51l, \
     Instruction52c, Instruction5rc
-from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError
-from analyser.analyser import Analyse1MemoryType, PRIMITIVE_TYPES_STR, Analyser, Analyse1StackType, STRING_TYPE
+from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, SMALI_BOOLEAN_TYPE, PRIMITIVE_TYPES, \
+    SMALI_STRING_TYPE, \
+    SMALI_INT_TYPE, SMALI_VOID_TYPE
+from analyser.analyser import Analyse1MemoryType, Analyser, Analyse1StackType
 
 
 class Analyse1(Analyser):
@@ -18,56 +20,75 @@ class Analyse1(Analyser):
             memory[methodInfos[MethodKeys.LOCALREGISTERCOUNT] - 1] = methodInfos[MethodKeys.CLASSNAME] + ';'
         # Add parameters type after the local registers
         for index, value in methodInfos[MethodKeys.PARAMS]:
-            memory[index] = 'L' + value + ';'
+            memory[index] = value
 
         stack: Analyse1StackType = []
         super().__init__(memory, stack, apkInfos, methodInfos, analysis, verbose)
+
+    # DONE
+    def _analyse10x(self, _instruction: Instruction35c) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        match _instruction.get_name():
+            case 'return-void':
+                if self._methodInfos[MethodKeys.RETURNTYPE] != SMALI_VOID_TYPE:
+                    exitError(f'Instruction {_instruction} (return-void) is not in a void method', ExitCode.RETURN_VOID_INSIDE_NON_VOID_METHOD)
+            case 'nop' as _nop:
+                self._useless(_nop)
+            case _ as _error:
+                exitError(f'Instruction {_instruction} is not a valid instruction10x', ExitCode.INVALID_INSTRUCTION)
 
     # TODO
     def _analyse35c(self, _instruction: Instruction35c) -> None:
         self._lastWasInvokeKindOrFillNewArray = True
         match _instruction.get_name():
             case 'invoke-direct' | 'invoke-virtual':
-                # Retrieved the parameters
-                params: list[str] = _instruction.get_output().split(', ')
-                # Extract the 'this' register (first one)
-                thisRegister: str = params[0]
-                thisContent: str = self._registerContent(thisRegister)
-                # Extract the called method
-                calledMethod: str = params[-1]
-                # Remove extracted pieces out of the the parameter list
-                params = params[1:-1]
-                # Decompose the called parameters
-                baseClass, methodName, methodParams, returnType = self._decomposeMethodCall(calledMethod)
-
-                # Check if the class is a subclass of the class containing the called method
-                if not self._isSubclass(thisContent, baseClass):
-                    exitError(f'Class {thisContent} is not a subclass of {baseClass}', ExitCode.INVALID_SUBCLASS)
-
-                # Check if the number of paramters is correct
-                if len(params) != len(methodParams):
-                    exitError(f'Method {methodName} requires {len(methodParams)}, but {len(params)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
-
-                # Check parameters consistency
-                for index, param in enumerate(params):
-                    # Get the register number
-                    register = self._registerNameToIndex(param)
-                    # Check if the register number is valid
-                    if not self._validRegisterNumber(register):
-                        self._Error_invalidRegisterNumber(_instruction, register)
-                    # Check if the content of the given register match the parameter type
-                    registerContent = self._registerContent(param)
-                    if (
-                            # The Oject is not a subclass of the parameter type
-                            (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
-                            # Parameter has wrong primitive type
-                            or registerContent != methodParams[index]
-                    ):
-                        exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
-
-                # If the method dosen't return void, push the return value to the stack
-                if returnType != 'V':
-                    self._stack.append(returnType)
+                pass
+                # # Retrieved the parameters
+                # params: list[str] = _instruction.get_output().split(', ')
+                # # Extract the 'this' register (first one)
+                # thisRegister: str = params[0]
+                # thisContent: str = self._getRegisterContent(int(thisRegister))
+                # # Extract the called method
+                # calledMethod: str = params[-1]
+                # # Remove extracted pieces out of the the parameter list
+                # params = params[1:-1]
+                # # Decompose the called parameters
+                # baseClass, methodName, methodParams, returnType = self._decomposeInvoke(calledMethod)
+                #
+                # _classManager = _instruction.cm
+                # _calledMethod = _classManager.get_method(_instruction.BBBB)
+                # print(_classManager)
+                #
+                # # FIXME
+                # # Check if the class is a subclass of the class containing the called method
+                # # if not self._isSubclass(thisContent, baseClass):
+                # #     exitError(f'Class {thisContent} is not a subclass of {baseClass}', ExitCode.INVALID_SUBCLASS)
+                #
+                # # Check if the number of paramters is correct
+                # if len(params) != len(methodParams):
+                #     exitError(f'Method {methodName} requires {len(methodParams)}, but {len(params)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
+                #
+                # # Check parameters consistency
+                # for index, param in enumerate(params):
+                #     # Get the register number
+                #     register = self._registerNameToIndex(param)
+                #     # Check if the register number is valid
+                #     if not self._isValidRegisterNumber(register):
+                #         self._Error_invalidRegisterNumber(_instruction, register)
+                #     # Check if the content of the given register match the parameter type
+                #     registerContent = self._getRegisterContent(param)
+                #     # FIXME
+                #     # if (
+                #     #         # The Oject is not a subclass of the parameter type
+                #     #         (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
+                #     #         # Parameter has wrong primitive type
+                #     #         or registerContent != methodParams[index]
+                #     # ):
+                #     #     exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
+                #
+                # # If the method dosen't return void, push the return value to the stack
+                # if returnType != 'V':
+                #     self._stack.append(returnType)
             # TODO
             case 'invoke-static':
                 # Retrieved the parameters
@@ -77,7 +98,11 @@ class Analyse1(Analyser):
                 # Remove extracted pieces out of the the parameter list
                 params = params[:-1]
                 # Decompose the called parameters
-                baseClass, methodName, methodParams, returnType = self._decomposeMethodCall(calledMethod)
+                baseClass, methodName, methodParams, returnType = self._decomposeInvoke(calledMethod)
+
+                _classManager = _instruction.cm
+                _calledMethod = _classManager.get_method(_instruction.BBBB)
+                print(_classManager)
 
                 # Check if the number of paramters is correct
                 if len(params) != len(methodParams):
@@ -89,18 +114,19 @@ class Analyse1(Analyser):
                     # Get the register number
                     register = self._registerNameToIndex(param)
                     # Check if the register number is valid
-                    if not self._validRegisterNumber(register):
+                    if not self._isValidRegisterNumber(register):
                         self._Error_invalidRegisterNumber(_instruction, register)
                     # Check if the content of the given register match the parameter type
-                    registerContent = self._registerContent(param)
-                    if (
-                            # The Oject is not a subclass of the parameter type
-                            (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
-                            # Parameter has wrong primitive type
-                            or registerContent != methodParams[index]
-                    ):
-                        exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}',
-                                  ExitCode.MISCMATCH_PARAMETER_TYPE)
+                    registerContent = self._getRegisterContent(param)
+                    # FIXME
+                    # if (
+                    #         # The Oject is not a subclass of the parameter type
+                    #         (methodParams[index].startswith('L') and not self._isSubclass(registerContent, methodParams[index]))
+                    #         # Parameter has wrong primitive type
+                    #         or registerContent != methodParams[index]
+                    # ):
+                    #     exitError(f'Parameter {param} has type {registerContent} instead of {methodParams[index]}',
+                    #               ExitCode.MISCMATCH_PARAMETER_TYPE)
 
                 # If the method dosen't return void, push the return value to the stack
                 if returnType != 'V':
@@ -111,87 +137,83 @@ class Analyse1(Analyser):
     # TODO
     def _analyse21c(self, _instruction: Instruction21c) -> None:
         self._lastWasInvokeKindOrFillNewArray = False
+        # Get the destination register index
+        registerIndex: int = _instruction.AA
         match _instruction.get_name():
             case 'check-cast':
                 # Check that the register is a valid register
-                register: str = self._findOperand(_instruction, 0)
-                registerIndex: int = self._registerNameToIndex(register)
-                if not self._validRegisterNumber(registerIndex):
+                if not self._isValidRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
-                # Check if the content of the register is not a primitive type and is initialized
-                if self._registerContent(register) in PRIMITIVE_TYPES_STR or self._registerContent(register) is None:
+                # Check if the content of the register is not a primitive type or is initialized
+                if self._getRegisterContent(registerIndex) in PRIMITIVE_TYPES or self._getRegisterContent(registerIndex) is None:
                     exitError(f'Instruction {_instruction} (check-cast) is a primitive value, not reference-bearing', ExitCode.CHECKCAST_AGAINST_PRIMITIVE_OR_NONE)
                 # Cast the argument to the given type (raise an error otherwise)
-                self._mem[registerIndex] = self._findOperand(_instruction, 1)
+                self._mem[registerIndex] = _instruction.cm.get_type(_instruction.BBBB)
             case 'const-string':
-                # Get the register name & index
-                register: str = self._findOperand(_instruction, 0)
-                registerIndex: int = self._registerNameToIndex(register)
                 # Check that the register is a valid register
-                if not self._validRegisterNumber(registerIndex):
+                if not self._isValidRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
                 # Put string into the corresponding register
-                self._mem[registerIndex] = STRING_TYPE
+                self._mem[registerIndex] = SMALI_STRING_TYPE
             # TODO
             case err:
                 exitError(f'Unhandled instruction21c subtype {err}', ExitCode.UNHANDLED_CASE)
 
-    # DONE
+    # Done
     def _analyse11n(self, _instruction: Instruction11n) -> None:
         self._lastWasInvokeKindOrFillNewArray = False
-        register: int = self._registerNameToIndex(self._findOperand(_instruction, 0))
-        if not self._validLocalRegisterNumber(register):
-            self._Error_invalidRegisterNumber(_instruction, register)
-        self._mem[register] = 'I'
+        registerIndex: int = _instruction.A
+        if not self._isValidLocalRegisterNumber(registerIndex):
+            self._Error_invalidRegisterNumber(_instruction, registerIndex)
+        self._mem[registerIndex] = SMALI_INT_TYPE
 
-    # DONE
+    # Done
     def _analyse31i(self, _instruction: Instruction11x) -> None:
         self._lastWasInvokeKindOrFillNewArray = False
-        register: int = self._registerNameToIndex(self._findOperand(_instruction, 0))
+        registerIndex: int = _instruction.AA
         # const-wide/32 write on a pair of registers
         if _instruction.get_name() == 'const-wide/32':
-            if not self._validLocalRegisterNumber(register + 1):
-                exitError(f'Instruction {_instruction} uses invalid register number pair ({register}, {register + 1})', ExitCode.INVALID_REGISTER_NUMBER)
-            self._mem[register] = 'I'
-            self._mem[register + 1] = 'I'
+            if not self._isValidLocalRegisterNumber(registerIndex + 1):
+                exitError(f'Instruction {_instruction} uses invalid register number pair ({registerIndex}, {registerIndex + 1})', ExitCode.INVALID_REGISTER_NUMBER)
+            self._mem[registerIndex] = SMALI_INT_TYPE
+            self._mem[registerIndex + 1] = SMALI_INT_TYPE
         else:
-            if not self._validLocalRegisterNumber(register):
-                self._Error_invalidRegisterNumber(_instruction, register)
-            self._mem[register] = 'I'
+            if not self._isValidLocalRegisterNumber(registerIndex):
+                self._Error_invalidRegisterNumber(_instruction, registerIndex)
+            self._mem[registerIndex] = SMALI_INT_TYPE
 
     # TODO
     def _analyse11x(self, _instruction: Instruction11x) -> None:
+        # Get the register name
+        registerIndex: int = _instruction.AA
         match _instruction.get_name():
             case 'move-result-object':
                 # Check if the last instruction was an invoke-kind or fill-new-array
                 if not self._lastWasInvokeKindOrFillNewArray:
                     exitError(f'Instruction {_instruction} is not preceded by an invoke-kind or fill-new-array instruction', ExitCode.MISSING_INVOKE_KIND_OR_FILL_NEW_ARRAY)
                 self._lastWasInvokeKindOrFillNewArray = False
-                # Get the register name
-                register: str = self._findOperand(_instruction, 0)
-                # Get the register index
-                registerIndex: int = self._registerNameToIndex(register)
                 # Check if the register is a valid register (only in local because we write in them)
-                if not self._validLocalRegisterNumber(registerIndex):
+                if not self._isValidLocalRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
                 # If the stack is empty, nothing to move
                 if len(self._stack) == 0:
                     exitError(f'The stack is empty', ExitCode.MOVE_RESULT_ON_EMPTY_STACK)
                 # Move the type of the last element on the stack to the given register
                 self._mem[registerIndex] = self._stack.pop()
+            # TODO
             case err:
                 exitError(f'Unhandled instruction11x subtype {err}', ExitCode.UNHANDLED_CASE)
 
-    def analyse(self, _currentInstruction: Instruction) -> None:
+    def analyse(self, _instruction: Instruction) -> None:
         """
         Main method that analyse the given instruction by redirecting it to the corresponding method.
-        :param _currentInstruction: The instruction to analyse
+        :param _instruction: The instruction to analyse
         """
         if self._verbose:
-            self._printInstruction(_currentInstruction)
+            self._printInstruction(_instruction)
             self._printMemory()
 
-        match _currentInstruction:
+        match _instruction:
             # Instruction 10t:
             # 28 -> `goto +AA`
             case Instruction10t() as _inst10t:
@@ -205,7 +227,7 @@ class Analyse1(Analyser):
             # 79..7a -> X
             # e3..f9 -> X
             case Instruction10x() as _inst10x:
-                self._useless(_inst10x)
+                self._analyse10x(_inst10x)
 
             # Instruction 11n:
             # 12 -> `const/4 vA, #+B`

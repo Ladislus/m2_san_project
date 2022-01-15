@@ -27,6 +27,9 @@ class ExitCode(Enum):
     MISSING_INVOKE_KIND_OR_FILL_NEW_ARRAY = auto()
     MOVE_RESULT_ON_EMPTY_STACK = auto()
     UNREACHABLE = auto()
+    RETURN_VOID_INSIDE_NON_VOID_METHOD = auto()
+    INVALID_INSTRUCTION = auto()
+    INVALID_REGISTER_INDEX = auto()
 
 
 def exitError(_msg: str, _code: ExitCode):

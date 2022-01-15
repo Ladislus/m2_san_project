@@ -1,8 +1,9 @@
 from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat, EncodedMethod
-from .exceptions import ExitCode, exitException
 from enum import Enum, auto
+from .exceptions import ExitCode, exitException
+from .constants import *
 
 
 class APKKeys(Enum):
@@ -18,7 +19,7 @@ class APKKeys(Enum):
     DALVIKVMFORMAT = auto()
 
 
-APKInfos = dict[APKKeys, Any]
+APKInfos: type = dict[APKKeys, Any]
 
 
 def printAPKInfos(_infos: APKInfos):
@@ -70,7 +71,7 @@ class MethodKeys(Enum):
     RETURNTYPE = auto()
 
 
-MethodInfos = dict[MethodKeys, Any]
+MethodInfos: type = dict[MethodKeys, Any]
 
 
 def printMethodInfos(_infos: MethodInfos):
@@ -87,6 +88,60 @@ def printMethodInfos(_infos: MethodInfos):
     )
 
 
+def _humanParameterTypeToSmaliType(_type: (int, str)) -> (int, str):
+    if _type[1] == HUMAN_VOID_TYPE:
+        return _type[0], SMALI_VOID_TYPE
+    elif _type[1] == HUMAN_BOOLEAN_TYPE:
+        return _type[0], SMALI_BOOLEAN_TYPE
+    elif _type[1] == HUMAN_BYTE_TYPE:
+        return _type[0], SMALI_BYTE_TYPE
+    elif _type[1] == HUMAN_CHAR_TYPE:
+        return _type[0], SMALI_CHAR_TYPE
+    elif _type[1] == HUMAN_SHORT_TYPE:
+        return _type[0], SMALI_SHORT_TYPE
+    elif _type[1] == HUMAN_INT_TYPE:
+        return _type[0], SMALI_INT_TYPE
+    elif _type[1] == HUMAN_LONG_TYPE:
+        return _type[0], SMALI_LONG_TYPE
+    elif _type[1] == HUMAN_FLOAT_TYPE:
+        return _type[0], SMALI_FLOAT_TYPE
+    elif _type[1] == HUMAN_DOUBLE_TYPE:
+        return _type[0], SMALI_DOUBLE_TYPE
+    else:
+        return _type[0], 'L' + _type[1] + ';'
+
+
+def _humanTypeToSmaliType(_type: str) -> str:
+    if _type == HUMAN_VOID_TYPE:
+        return SMALI_VOID_TYPE
+    elif _type == HUMAN_BOOLEAN_TYPE:
+        return SMALI_BOOLEAN_TYPE
+    elif _type == HUMAN_BYTE_TYPE:
+        return SMALI_BYTE_TYPE
+    elif _type == HUMAN_CHAR_TYPE:
+        return SMALI_CHAR_TYPE
+    elif _type == HUMAN_SHORT_TYPE:
+        return SMALI_SHORT_TYPE
+    elif _type == HUMAN_INT_TYPE:
+        return SMALI_INT_TYPE
+    elif _type == HUMAN_LONG_TYPE:
+        return SMALI_LONG_TYPE
+    elif _type == HUMAN_FLOAT_TYPE:
+        return SMALI_FLOAT_TYPE
+    elif _type == HUMAN_DOUBLE_TYPE:
+        return SMALI_DOUBLE_TYPE
+    else:
+        return 'L' + _type + ';'
+
+
+def _humanParametersTypesToSmaliTypes(_types: list[(int, str)]) -> list[(int, str)]:
+    candidate: list[(int, str)] = []
+    for currentType in _types:
+        print(currentType)
+        candidate.append(_humanParameterTypeToSmaliType(currentType))
+    return candidate
+
+
 def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:
     registerInformations = _method.get_information()
 
@@ -97,6 +152,6 @@ def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:
         MethodKeys.LOCALREGISTERCOUNT: _method.get_locals() + 1,
         MethodKeys.LOCALREGISTER: registerInformations['registers'],
         MethodKeys.PARAMETERCOUNT: len(registerInformations['params']) if 'params' in registerInformations.keys() else 0,
-        MethodKeys.PARAMS: registerInformations['params'] if 'params' in registerInformations.keys() else [],
-        MethodKeys.RETURNTYPE: registerInformations['return']
+        MethodKeys.PARAMS: _humanParametersTypesToSmaliTypes(registerInformations['params']) if 'params' in registerInformations.keys() else [],
+        MethodKeys.RETURNTYPE: _humanTypeToSmaliType(registerInformations['return'])
     }

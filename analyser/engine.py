@@ -4,6 +4,7 @@ from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod, Instructi
 from tools import APKInfos, extractInfosFromMethod, MethodInfos, exitError, ExitCode, getOffsetFromGoto, getOffsetFromIf
 from .analyse1 import Analyse1
 
+# Type aliases
 FlowType: type = dict[Instruction, list[Instruction]]
 StackType: type = list[Instruction]
 
@@ -57,8 +58,7 @@ def _buildFlowFromMethod(_method: EncodedMethod) -> (StackType, FlowType):
     return stack, candidate
 
 
-def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analysis: Analysis, _inputFile: str | None,
-            _verbose: bool):
+def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analysis: Analysis, _inputFile: str | None, _verbose: bool):
     # Extract all the methods from the class
     methods: list[EncodedMethod] = _classDefItem.get_methods()
 
@@ -77,9 +77,9 @@ def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analy
                 stack, flow = _buildFlowFromMethod(currentMethod)
 
                 while len(stack) != 0:
-                    _current: Instruction = stack.pop(0)
-                    analyser.analyse(_current)
-                    stack.extend(flow[_current])
+                    currentInstruction: Instruction = stack.pop(0)
+                    analyser.analyse(currentInstruction)
+                    stack.extend(flow[currentInstruction])
 
                 # analyser.reportMethod()
             case 2:
