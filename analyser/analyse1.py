@@ -83,13 +83,12 @@ class Analyse1(Analyser):
                 calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(
                     _instruction)
 
-                    # Check if the number of paramters is correct
+                # Check if the number of paramters is correct
                 if len(providedParameters) != len(calledMethodParameters):
                     exitError(
-                        f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given',
-                        ExitCode.PARAMETER_COUNT_MISMATCH)
+                        f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
 
-                    # Check parameters consistency
+                # Check parameters consistency
                 for parameterRegisterIndex, parameterRegisterContent in enumerate(providedParameters):
                     # Check if the register number is valid
                     if not self._isValidRegisterNumber(parameterRegisterIndex):
