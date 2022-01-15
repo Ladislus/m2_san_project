@@ -59,7 +59,7 @@ class Analyse1(Analyser):
                     exitError(f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
 
                 # Check parameters consistency
-                for parameterRegisterIndex, parameterRegisterContent in enumerate(providedParameters):
+                for parameterIndex, parameterRegisterIndex in enumerate(providedParameters):
                     # Check if the register number is valid
                     if not self._isValidRegisterNumber(parameterRegisterIndex):
                         self._Error_invalidRegisterNumber(_instruction, parameterRegisterIndex)
@@ -67,11 +67,12 @@ class Analyse1(Analyser):
                     parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
                     if (
                             # The Oject is not a subclass of the parameter type
-                            (calledMethodParameters[parameterRegisterIndex].startswith('L') and not self._isSubclass(parameterRegisterContent, calledMethodParameters[parameterRegisterIndex]))
+                            (calledMethodParameters[parameterIndex].startswith('L') and not self._isSubclass(
+                                parameterRegisterContent, calledMethodParameters[parameterIndex]))
                             # Parameter has wrong primitive type
-                            or parameterRegisterContent != calledMethodParameters[parameterRegisterIndex]
+                            or parameterRegisterContent != calledMethodParameters[parameterIndex]
                     ):
-                        exitError(f'Parameter {parameterRegisterContent} has type {parameterRegisterContent} instead of {calledMethodParameters[parameterRegisterIndex]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
+                        exitError(f'Parameter {parameterRegisterIndex} has type {parameterRegisterIndex} instead of {calledMethodParameters[parameterIndex]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
 
                 # If the method dosen't return void, push the return value to the stack
                 if calledMethodReturn != SMALI_VOID_TYPE:
@@ -89,7 +90,7 @@ class Analyse1(Analyser):
                         f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
 
                 # Check parameters consistency
-                for parameterRegisterIndex, parameterRegisterContent in enumerate(providedParameters):
+                for parameterIndex, parameterRegisterIndex in enumerate(providedParameters):
                     # Check if the register number is valid
                     if not self._isValidRegisterNumber(parameterRegisterIndex):
                         self._Error_invalidRegisterNumber(_instruction, parameterRegisterIndex)
@@ -97,16 +98,14 @@ class Analyse1(Analyser):
                     parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
                     if (
                             # The Oject is not a subclass of the parameter type
-                            (calledMethodParameters[parameterRegisterIndex].startswith('L') and not self._isSubclass(
-                                parameterRegisterContent, calledMethodParameters[parameterRegisterIndex]))
+                            (calledMethodParameters[parameterIndex].startswith('L') and not self._isSubclass(
+                                parameterRegisterContent, calledMethodParameters[parameterIndex]))
                             # Parameter has wrong primitive type
-                            or parameterRegisterContent != calledMethodParameters[parameterRegisterIndex]
+                            or parameterRegisterContent != calledMethodParameters[parameterIndex]
                     ):
-                        exitError(
-                            f'Parameter {parameterRegisterContent} has type {parameterRegisterContent} instead of {calledMethodParameters[parameterRegisterIndex]}',
-                            ExitCode.MISCMATCH_PARAMETER_TYPE)
+                        exitError(f'Parameter {parameterRegisterIndex} has type {parameterRegisterIndex} instead of {calledMethodParameters[parameterIndex]}', ExitCode.MISCMATCH_PARAMETER_TYPE)
 
-                    # If the method dosen't return void, push the return value to the stack
+                # If the method dosen't return void, push the return value to the stack
                 if calledMethodReturn != SMALI_VOID_TYPE:
                     self._stack.append(calledMethodReturn)
             # TODO

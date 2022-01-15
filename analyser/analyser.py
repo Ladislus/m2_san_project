@@ -67,11 +67,7 @@ class Analyser:
         :return: boolean
         """
 
-        # If the two parameters dosen't have the trailing ';', add it
-        if not _className.endswith(';'):
-            _className += ';'
-        if not _superclassName.endswith(';'):
-            _superclassName += ';'
+        print(f'Class: {_className} Superclass: {_superclassName}')
 
         # If the superclass is Object, return True (all classes implement Object)
         if _superclassName == 'Ljava/lang/Object;':
@@ -88,6 +84,7 @@ class Analyser:
             exitError(f'Couldn\'t find class analysis for class {_className}', ExitCode.ANALYSIS_NOT_FOUND)
         # Retrieve the extended object
         currentParentClass = currentParentAnalysis.extends
+        print(f'Current parent class: {currentParentClass}')
         while currentParentClass is not None:
             # If the extended object is the _superclassName, return true$$
             if currentParentClass == _superclassName:
