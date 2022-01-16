@@ -135,11 +135,7 @@ def _humanTypeToSmaliType(_type: str) -> str:
 
 
 def _humanParametersTypesToSmaliTypes(_types: list[(int, str)]) -> list[(int, str)]:
-    candidate: list[(int, str)] = []
-    for currentType in _types:
-        print(currentType)
-        candidate.append(_humanParameterTypeToSmaliType(currentType))
-    return candidate
+    return [_humanParameterTypeToSmaliType(currentType) for currentType in _types]
 
 
 def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:

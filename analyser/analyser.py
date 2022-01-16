@@ -1,6 +1,7 @@
-from androguard.core.analysis.analysis import Analysis
+from androguard.core.analysis.analysis import Analysis, ClassAnalysis
 from androguard.core.bytecodes.dvm import Instruction, Instruction3rc, Instruction35c
-from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys
+from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys, SMALI_OBJECT_TYPE, SMALI_BOOLEAN_TYPE, \
+    SMALI_INT_TYPE, SMALI_ARRAY_MARKER, Colors
 
 # Type aliases for analysis
 Analyse1MemoryType: type = list[None or str]
@@ -37,9 +38,6 @@ class Analyser:
     def analyse(self, instruction: Instruction):
         exitError('Method `analyse()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
 
-    def reportMethod(self):
-        exitError('Method `reportMethod()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
-
     # CHECKERS
 
     def _isValidRegisterNumber(self, _registerIndex: int) -> bool:
@@ -58,6 +56,20 @@ class Analyser:
         """
         return _registerIndex < self._methodInfos[MethodKeys.LOCALREGISTERCOUNT]
 
+    @staticmethod
+    def _isArray(_type: str) -> bool:
+        return _type.startswith(SMALI_ARRAY_MARKER)
+
+    @staticmethod
+    def _isValidPrimitiveType(_first: str, _second: str) -> bool:
+        # Special case for boolean, because int can be interpreted as booleans
+        if _first == SMALI_BOOLEAN_TYPE:
+            return _second in (SMALI_BOOLEAN_TYPE, SMALI_INT_TYPE)
+        elif _second == SMALI_BOOLEAN_TYPE:
+            return _first in (SMALI_BOOLEAN_TYPE, SMALI_INT_TYPE)
+        else:
+            return _first == _second
+
     # FIXME
     def _isSubclass(self, _className: str, _superclassName: str) -> bool:
         """
@@ -67,37 +79,33 @@ class Analyser:
         :return: boolean
         """
 
-        print(f'Class: {_className} Superclass: {_superclassName}')
-
         # If the superclass is Object, return True (all classes implement Object)
-        if _superclassName == 'Ljava/lang/Object;':
+        if _superclassName == SMALI_OBJECT_TYPE:
             return True
+        elif _className == SMALI_OBJECT_TYPE:
+            return False
 
         # If the _className is the same as the _superclassName, return true
         if _className == _superclassName:
             return True
 
-        # Get the analysis of _className
-        currentParentAnalysis = self._analysis.get_class_analysis(_className)
-        # If we couldn't retrieve the analysis of the current class, error
-        if currentParentAnalysis is None:
-            exitError(f'Couldn\'t find class analysis for class {_className}', ExitCode.ANALYSIS_NOT_FOUND)
-        # Retrieve the extended object
-        currentParentClass = currentParentAnalysis.extends
-        print(f'Current parent class: {currentParentClass}')
-        while currentParentClass is not None:
-            # If the extended object is the _superclassName, return true$$
-            if currentParentClass == _superclassName:
-                return True
-            # Else, propagate to the next parent
-            currentParentAnalysis = self._analysis.get_class_analysis(currentParentClass)
-            # If we couldn't retrieve the analysis of the current class, this means the parent class is Object
-            if currentParentAnalysis is None:
-                exitError(f'Couldn\'t find class analysis for parent class {currentParentClass}', ExitCode.ANALYSIS_NOT_FOUND)
-            # Retrieve the extended object
-            currentParentClass = currentParentAnalysis.extends
-        # If we went through all parents without finding the correct name, return false (Can't be
-        exitError(f'Shouldn\'t reached the end of the while in "_isSubclass({_className}, {_superclassName})', ExitCode.UNREACHABLE)
+        # TODO Comment
+        todo: set[str] = set()
+        todo.add(_className)
+        done: set[str] = set()
+        while len(todo) > 0:
+            curr = todo.pop()
+            if curr not in done and curr != SMALI_OBJECT_TYPE:
+                _a: ClassAnalysis = self._analysis.get_class_analysis(curr)
+                done.add(curr)
+                if _a is not None:
+                    todo.add(_a.extends)
+                    [todo.add(x) for x in _a.implements]
+                else:
+                    # TODO Better analysis
+                    print(f'{Colors.WARNING}Couldn\'t find analysis for \'{curr}\', defaulting return to True{Colors.ENDC}')
+                    return True
+        return _superclassName in done
 
     # GETTERS
 
@@ -108,7 +116,7 @@ class Analyser:
         :return: A string representing the type of content, None if empty
         """
         if not self._isValidRegisterNumber(_registerIndex):
-            exitError(f'Invalid register index {_registerIndex}', ExitCode.INVALID_REGISTER_INDEX)
+            exitError(f'Invalid register index \'{_registerIndex}\'', ExitCode.INVALID_REGISTER_INDEX)
         return self._mem[_registerIndex]
 
     # ANALYSIS
@@ -119,7 +127,7 @@ class Analyser:
         Method called when an instruction is not handled.
         :param _instruction: The instruction that isn't handled
         """
-        exitError(f'Unhandled instruction type {type(_instruction)}', ExitCode.UNHANDLED_INSTRUCTION)
+        exitError(f'Unhandled instruction type \'{type(_instruction).__name__}\'', ExitCode.UNHANDLED_INSTRUCTION)
 
     def _useless(self, _instruction: Instruction) -> None:
         """
@@ -127,7 +135,7 @@ class Analyser:
         :param _instruction: The instruction
         """
         if self._verbose:
-            print(f'Instruction {_instruction.get_name()} (OP: {hex(_instruction.get_op_value())}) shouldn\'t be analysed')
+            print(f'Instruction \'{_instruction.get_name()}\' (OP: {hex(_instruction.get_op_value())}) shouldn\'t be analysed')
 
     # DEBUG
 
@@ -139,16 +147,15 @@ class Analyser:
         """
         print(
             'Instruction: \n'
-            f'\tName: {_instruction.get_name()}\n'
-            f'\tOP: {hex(_instruction.get_op_value())}\n'
-            f'\tOperands: {_instruction.get_operands()}\n'
-            f'\tOutput: {_instruction.get_output()}\n'
-            f'\tSize: {_instruction.get_length()}'
+            f'\tName: \'{_instruction.get_name()}\'\n'
+            f'\tOP: \'{hex(_instruction.get_op_value())}\'\n'
+            f'\tOutput: \'{_instruction.get_output()}\'\n'
+            f'\tSize: \'{_instruction.get_length()}\''
         )
 
     def _printMemory(self):
         print(f'\tMemory:')
-        [print(f'\t\tv{x}: {self._mem[x]}') for x in range(len(self._mem))]
+        [print(f'\t\tv{x}: \'{self._mem[x]}\'') for x in range(len(self._mem))]
 
     # UTILS
 
@@ -175,7 +182,7 @@ class Analyser:
         return calledMethodInformations[0], calledMethodInformations[1], self._getParametersTypeFromString(calledMethodInformations[2][0]), calledMethodInformations[2][1]
 
     @staticmethod
-    def _getInvokeProvidedParameters(_instruction: InvokeType) -> list[int]:
+    def _getVariadicProvidedParameters(_instruction: InvokeType) -> list[int]:
         candidate: list[int] = []
         # _instruction.A contains the parameter count
         argumentsLength: int = _instruction.A
@@ -194,8 +201,37 @@ class Analyser:
 
         return candidate
 
+    # TODO Comment
+    @staticmethod
+    def _decomposeArrays(_first: str, _second: str) -> ((int, str), (int, str)):
+        _firstCounter = 0
+        while _first.startswith(SMALI_ARRAY_MARKER):
+            _first = _first[1:]
+            _firstCounter += 1
+        _secondCounter = 0
+        while _second.startswith(SMALI_ARRAY_MARKER):
+            _second = _second[1:]
+            _secondCounter += 1
+        return (_firstCounter, _first), (_secondCounter, _second)
+
+    def _validateParameterType(self, _firstIndex: int, _firstValue: str, _secondValue: str) -> None:
+        if _firstValue.startswith(SMALI_ARRAY_MARKER) or _secondValue.startswith(SMALI_ARRAY_MARKER):
+            (_firstCount, _firstValue), (_secondCounter, _secondValue) = self._decomposeArrays(_firstValue, _secondValue)
+            if _firstCount != _secondCounter:
+                exitError(f'Array dimensions differs ({_firstCount} != {_secondCounter})', ExitCode.MISCMATCH_PARAMETER_TYPE)
+
+        if _secondValue.startswith('L'):
+            if not _firstValue.startswith('L'):
+                exitError(f'Parameter expect type \'{_secondValue}\', but primitive type \'{_firstValue}\' given', ExitCode.MISCMATCH_PARAMETER_TYPE)
+            # Check if the provided object is a subtype of the parameter
+            if not self._isSubclass(_firstValue, _secondValue):
+                exitError(f'Parameter \'v{_firstIndex}\' has type \'{_firstValue}\' which is not a subtype of \'{_secondValue}\'', ExitCode.MISCMATCH_PARAMETER_TYPE)
+        # Else check if the primitive types match
+        elif not self._isValidPrimitiveType(_firstValue, _secondValue):
+            exitError(f'Parameter \'v{_firstIndex}\' has type \'{_firstValue}\'instead of \'{_secondValue}\'', ExitCode.MISCMATCH_PARAMETER_TYPE)
+
     # ERRORS
 
     @staticmethod
     def _Error_invalidRegisterNumber(_instruction: Instruction, _register: int):
-        exitError(f'Instruction {_instruction} uses invalid register number {_register}', ExitCode.INVALID_REGISTER_NUMBER)
+        exitError(f'Instruction \'{_instruction.get_name()}\' uses invalid register number \'{_register}\'', ExitCode.INVALID_REGISTER_INDEX)

@@ -14,7 +14,6 @@ class ExitCode(Enum):
     NO_INPUT_FILE_GIVEN = auto()
     UNKNOWN_INSTRUCTION_TYPE = auto()
     UNHANDLED_INSTRUCTION = auto()
-    INVALID_REGISTER_NUMBER = auto()
     UNHANDLED_CASE = auto()
     CHECKCAST_AGAINST_PRIMITIVE_OR_NONE = auto()
     CAST_ERROR = auto()
@@ -30,6 +29,19 @@ class ExitCode(Enum):
     RETURN_VOID_INSIDE_NON_VOID_METHOD = auto()
     INVALID_INSTRUCTION = auto()
     INVALID_REGISTER_INDEX = auto()
+    MOVE_RESULT_ON_OBJECT_TYPE = auto()
+    MOVE_RESULT_OBJECT_ON_PRIMITIVE_TYPE = auto()
+    INVALID_OFFSET = auto()
+    NEW_INSTANCE_AGAINST_ARRAY = auto()
+    RETURN_TYPE_MISMATCH = auto()
+    RETURN_OBJECT_ON_PRIMITIVE_TYPE = auto()
+    RETURN_ON_OBJECT_TYPE = auto()
+
+
+class Colors:
+    WARNING = '\033[93m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
 
 
 def exitError(_msg: str, _code: ExitCode):
