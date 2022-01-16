@@ -37,6 +37,15 @@ class Analyse1(Analyser):
             case _error:
                 exitError(f'Instruction \'{type(_instruction).__name__}\' is not a valid instruction10x', ExitCode.INVALID_INSTRUCTION)
 
+    # Done
+    # TODO Comment
+    def _analyse11n(self, _instruction: Instruction11n) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        registerIndex: int = _instruction.A
+        if not self._isValidLocalRegisterNumber(registerIndex):
+            self._Error_invalidRegisterNumber(_instruction, registerIndex)
+        self._mem[registerIndex] = SMALI_INT_TYPE
+
     # TODO
     def _analyse35c(self, _instruction: Instruction35c) -> None:
         self._lastWasInvokeKindOrFillNewArray = True
@@ -149,15 +158,6 @@ class Analyse1(Analyser):
             # TODO
             case _error:
                 exitError(f'Unhandled instruction21c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
-
-    # Done
-    # TODO Comment
-    def _analyse11n(self, _instruction: Instruction11n) -> None:
-        self._lastWasInvokeKindOrFillNewArray = False
-        registerIndex: int = _instruction.A
-        if not self._isValidLocalRegisterNumber(registerIndex):
-            self._Error_invalidRegisterNumber(_instruction, registerIndex)
-        self._mem[registerIndex] = SMALI_INT_TYPE
 
     # Done
     # TODO Comment
