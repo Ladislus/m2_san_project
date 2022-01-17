@@ -111,7 +111,7 @@ def _humanParameterTypeToSmaliType(_type: (int, str)) -> (int, str):
         return _type[0], 'L' + _type[1].replace('.', '/') + ';'
 
 
-def _humanTypeToSmaliType(_type: str) -> str:
+def humanTypeToSmaliType(_type: str) -> str:
     if _type == HUMAN_VOID_TYPE:
         return SMALI_VOID_TYPE
     elif _type == HUMAN_BOOLEAN_TYPE:
@@ -149,5 +149,5 @@ def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:
         MethodKeys.LOCALREGISTER: registerInformations['registers'],
         MethodKeys.PARAMETERCOUNT: len(registerInformations['params']) if 'params' in registerInformations.keys() else 0,
         MethodKeys.PARAMS: _humanParametersTypesToSmaliTypes(registerInformations['params']) if 'params' in registerInformations.keys() else [],
-        MethodKeys.RETURNTYPE: _humanTypeToSmaliType(registerInformations['return'])
+        MethodKeys.RETURNTYPE: humanTypeToSmaliType(registerInformations['return'])
     }

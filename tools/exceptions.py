@@ -36,6 +36,8 @@ class ExitCode(Enum):
     RETURN_TYPE_MISMATCH = auto()
     RETURN_OBJECT_ON_PRIMITIVE_TYPE = auto()
     RETURN_ON_OBJECT_TYPE = auto()
+    INVALID_REGISTER_TYPE = auto()
+    DIVIDE_BY_ZERO = auto()
 
 
 class Colors:

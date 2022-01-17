@@ -7,7 +7,7 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction52c, Instruction5rc
 from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, \
     SMALI_STRING_TYPE, \
-    SMALI_INT_TYPE, SMALI_VOID_TYPE
+    SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType
 from analyser.analyser import Analyse1MemoryType, Analyser, Analyse1StackType
 
 
@@ -26,7 +26,7 @@ class Analyse1(Analyser):
         super().__init__(memory, stack, apkInfos, methodInfos, analysis, verbose)
 
     # DONE
-    def _analyse10x(self, _instruction: Instruction35c) -> None:
+    def _analyse10x(self, _instruction: Instruction10x) -> None:
         self._lastWasInvokeKindOrFillNewArray = False
         match _instruction.get_name():
             case 'return-void':
@@ -161,7 +161,7 @@ class Analyse1(Analyser):
 
     # Done
     # TODO Comment
-    def _analyse31i(self, _instruction: Instruction11x) -> None:
+    def _analyse31i(self, _instruction: Instruction31i) -> None:
         self._lastWasInvokeKindOrFillNewArray = False
         registerIndex: int = _instruction.AA
         # const-wide/32 write on a pair of registers
@@ -235,6 +235,58 @@ class Analyse1(Analyser):
         offset: int = _instruction.BBBB
         if offset == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t have a 0 offset', ExitCode.INVALID_OFFSET)
+
+    # TODO Comment
+    # Done
+    def _analyse12x(self, _instruction: Instruction12x) -> None:
+        match _instruction.get_op_value():
+            case op if 0x81 <= op <= 0x8f:
+                _fromType, _toType = [humanTypeToSmaliType(x) for x in _instruction.get_name().split('-to-')]
+                _toRegisterIndex: int = _instruction.A
+                _fromRegisterIndex: int = _instruction.B
+
+                print(f'From: {_fromType} (v{_fromRegisterIndex}) -> To: {_toType} (v{_toRegisterIndex})')
+
+                if not self._isValidRegisterNumber(_fromRegisterIndex):
+                    self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
+                if not self._isValidLocalRegisterNumber(_toRegisterIndex):
+                    self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+                if self._mem[_fromRegisterIndex] != _fromType:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{_fromType}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                self._mem[_toRegisterIndex] = _toType
+            case _error:
+                exitError(f'Unhandled instruction12x subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
+
+    # TODO Comment
+    # Done
+    def _analyse22b(self, _instruction: Instruction22b) -> None:
+        _toRegisterIndex: int = _instruction.AA
+        _fromRegisterIndex: int = _instruction.BB
+        if not self._isValidLocalRegisterNumber(_toRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+        if not self._isValidRegisterNumber(_fromRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
+        if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+        if _instruction.get_name().startswith('div') and _instruction.CC == 0:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t divide by 0', ExitCode.DIVIDE_BY_ZERO)
+        self._mem[_toRegisterIndex] = SMALI_INT_TYPE
+
+    # TODO Comment
+    def _analyse22s(self, _instruction: Instruction22s) -> None:
+        _toRegisterIndex: int = _instruction.A
+        _fromRegisterIndex: int = _instruction.B
+        if not self._isValidLocalRegisterNumber(_toRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+        if not self._isValidRegisterNumber(_fromRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
+        if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
+            exitError(
+                f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided',
+                ExitCode.INVALID_REGISTER_TYPE)
+        if _instruction.get_name().startswith('div') and _instruction.CCCC == 0:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t divide by 0', ExitCode.DIVIDE_BY_ZERO)
+        self._mem[_toRegisterIndex] = SMALI_INT_TYPE
 
     def analyse(self, _instruction: Instruction) -> None:
         """
@@ -340,7 +392,7 @@ class Analyse1(Analyser):
             #   ce -> `div-double/2addr`
             #   cf -> `rem-double/2addr`
             case Instruction12x() as _inst12x:
-                self._unhandled(_inst12x)
+                self._analyse12x(_inst12x)
 
             # Instruction 20bc:
             # TODO https://source.android.com/devices/tech/dalvik/instruction-formats?hl=en#format-ids
@@ -414,7 +466,7 @@ class Analyse1(Analyser):
             #   e1 -> `shr-int/lit8`
             #   e2 -> `ushr-int/lit8`
             case Instruction22b() as _inst22b:
-                self._unhandled(_inst22b)
+                self._analyse22b(_inst22b)
 
             # Instruction 22c:
             # 20 -> `instance-of vA, vB, type@CCCC`
@@ -453,7 +505,7 @@ class Analyse1(Analyser):
             #   d6 -> `or-int/lit16`
             #   d7 -> `xor-int/lit16`
             case Instruction22s() as _inst22s:
-                self._unhandled(_inst22s)
+                self._analyse22s(_inst22s)
 
             # Instruction22t:
             # if-test vA, vB, +CCCC
