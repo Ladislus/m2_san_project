@@ -38,6 +38,7 @@ class ExitCode(Enum):
     RETURN_ON_OBJECT_TYPE = auto()
     INVALID_REGISTER_TYPE = auto()
     DIVIDE_BY_ZERO = auto()
+    NO_MEMORY = auto()
 
 
 class Colors:

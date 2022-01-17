@@ -5,25 +5,56 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction22s, Instruction22t, Instruction23x, Instruction30t, Instruction31c, Instruction31t, Instruction35mi, \
     Instruction35ms, Instruction3rc, Instruction3rmi, Instruction3rms, Instruction40sc, Instruction41c, Instruction51l, \
     Instruction52c, Instruction5rc
-from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, \
-    SMALI_STRING_TYPE, \
+from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, SMALI_STRING_TYPE, \
     SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType, SMALI_BOOLEAN_TYPE
-from analyser.analyser import Analyse1MemoryType, Analyser, Analyse1StackType
+from analyser.analyser import Analyser, Analyse1MemoryContentType, Analyse1StackContentType
 
 
 class Analyse1(Analyser):
     def __init__(self, apkInfos: APKInfos, methodInfos: MethodInfos, analysis: Analysis, verbose: bool):
-        # Initialyse memory
-        memory: Analyse1MemoryType = [None] * (methodInfos[MethodKeys.LOCALREGISTERCOUNT] + methodInfos[MethodKeys.PARAMETERCOUNT])
-        # Smali: Last local register is the "this" (ie: current classname)
-        if methodInfos[MethodKeys.LOCALREGISTERCOUNT] > 0 and not methodInfos[MethodKeys.STATIC]:
-            memory[methodInfos[MethodKeys.LOCALREGISTERCOUNT] - 1] = methodInfos[MethodKeys.CLASSNAME] + ';'
-        # Add parameters type after the local registers
-        for index, value in methodInfos[MethodKeys.PARAMS]:
-            memory[index] = value
+        super().__init__({}, {}, apkInfos, methodInfos, analysis, verbose)
 
-        stack: Analyse1StackType = []
-        super().__init__(memory, stack, apkInfos, methodInfos, analysis, verbose)
+    def _initMemoryFirst(self) -> None:
+        assert self._current is not None, f'Current instruction is None'
+        # Initialyse memory
+        memory: Analyse1MemoryContentType = [None] * (
+                self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] + self._methodInfos[MethodKeys.PARAMETERCOUNT])
+        # Smali: Last local register is the "this" (ie: current classname)
+        if self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] > 0 and not self._methodInfos[MethodKeys.STATIC]:
+            memory[self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] - 1] = self._methodInfos[MethodKeys.CLASSNAME] + ';'
+        # Add parameters type after the local registers
+        for index, value in self._methodInfos[MethodKeys.PARAMS]:
+            memory[index] = value
+        stack: Analyse1StackContentType = []
+        self._mem[self._current] = memory
+        self._stack[self._current] = stack
+
+    def _setMemory(self, _predecessors: list[Instruction]) -> bool:
+        # First time we enter the method
+        if len(self._mem.keys()) == 0:
+            self._initMemoryFirst()
+            return True
+        # First time we analyse this node
+        elif self._current not in self._mem.keys():
+            # Union des predecesseurs
+            memory: Analyse1MemoryContentType or None = None
+            for predecessor in _predecessors:
+                if predecessor not in self._mem.keys():
+                    continue
+                elif memory is None:
+                    memory = self._mem[predecessor]
+                else:
+                    # TODO FUUUUUUUUUUUUUUUUUUSION !
+                    pass
+            if memory is None:
+                exitError(f'No predecessor memory for instruction {self._current}', ExitCode.NO_MEMORY)
+            return True
+        # We already analysed this node
+        else:
+            # TODO
+            # Check difference between predecessors
+            # True if changed, False else
+            return True
 
     # DONE
     def _analyse10x(self, _instruction: Instruction10x) -> None:
@@ -31,11 +62,13 @@ class Analyse1(Analyser):
         match _instruction.get_name():
             case 'return-void':
                 if self._methodInfos[MethodKeys.RETURNTYPE] != SMALI_VOID_TYPE:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' (return-void) is not in a void method', ExitCode.RETURN_VOID_INSIDE_NON_VOID_METHOD)
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' (return-void) is not in a void method',
+                              ExitCode.RETURN_VOID_INSIDE_NON_VOID_METHOD)
             case 'nop' as _nop:
                 self._useless(_nop)
             case _error:
-                exitError(f'Instruction \'{type(_instruction).__name__}\' is not a valid instruction10x', ExitCode.INVALID_INSTRUCTION)
+                exitError(f'Instruction \'{type(_instruction).__name__}\' is not a valid instruction10x',
+                          ExitCode.INVALID_INSTRUCTION)
 
     # Done
     # TODO Comment
@@ -44,28 +77,33 @@ class Analyse1(Analyser):
         registerIndex: int = _instruction.A
         if not self._isValidLocalRegisterNumber(registerIndex):
             self._Error_invalidRegisterNumber(_instruction, registerIndex)
-        self._mem[registerIndex] = SMALI_INT_TYPE
+        # self._mem[registerIndex] = SMALI_INT_TYPE
+        self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
 
     # TODO
     def _analyse35c(self, _instruction: Instruction35c) -> None:
         self._lastWasInvokeKindOrFillNewArray = True
         match _instruction.get_name():
-            case 'invoke-direct' | 'invoke-virtual' | 'invoke-super':
+            case 'invoke-direct' | 'invoke-virtual' | 'invoke-super' | 'invoke-interface':
                 # Retrieved the parameters
                 providedParameters: list[int] = self._getVariadicProvidedParameters(_instruction)
                 # Extract the 'this' register (first one)
                 thisRegisterIndex: int = providedParameters.pop(0)
                 thisRegisterContent: str = self._getRegisterContent(thisRegisterIndex)
                 # Decompose the called method
-                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(_instruction)
+                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(
+                    _instruction)
 
                 # Check if the class is a subclass of the class containing the called method
                 if not self._isSubclass(thisRegisterContent, calledMethodClass):
-                    exitError(f'Class {thisRegisterContent} is not a subclass of {calledMethodClass}', ExitCode.INVALID_SUBCLASS)
+                    exitError(f'Class {thisRegisterContent} is not a subclass of {calledMethodClass}',
+                              ExitCode.INVALID_SUBCLASS)
 
                 # Check if the number of paramters is correct
                 if len(providedParameters) != len(calledMethodParameters):
-                    exitError(f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
+                    exitError(
+                        f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given',
+                        ExitCode.PARAMETER_COUNT_MISMATCH)
 
                 # Check parameters consistency
                 for parameterIndex, parameterRegisterIndex in enumerate(providedParameters):
@@ -75,20 +113,25 @@ class Analyse1(Analyser):
                     # Check if the content of the given register match the parameter type
                     parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
                     # Check if the content of the register is a valid subtype of the parameter type
-                    self._validateParameterType(parameterRegisterIndex, parameterRegisterContent, calledMethodParameters[parameterIndex])
+                    self._validateParameterType(parameterRegisterIndex, parameterRegisterContent,
+                                                calledMethodParameters[parameterIndex])
 
-                # If the method dosen't return void, push the return value to the stack
+                # If the method doesn't return void, push the return value to the stack
                 if calledMethodReturn != SMALI_VOID_TYPE:
-                    self._stack.append(calledMethodReturn)
+                    # self._stack.append(calledMethodReturn)
+                    self._putStack(calledMethodReturn)
             case 'invoke-static':
                 # Retrieved the parameters
                 providedParameters: list[int] = self._getVariadicProvidedParameters(_instruction)
                 # Decompose the called method
-                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(_instruction)
+                calledMethodClass, calledMethodName, calledMethodParameters, calledMethodReturn = self._decomposeInvokedMethod(
+                    _instruction)
 
                 # Check if the number of paramters is correct
                 if len(providedParameters) != len(calledMethodParameters):
-                    exitError(f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given', ExitCode.PARAMETER_COUNT_MISMATCH)
+                    exitError(
+                        f'Method {calledMethodName} requires {len(calledMethodParameters)}, but {len(providedParameters)} given',
+                        ExitCode.PARAMETER_COUNT_MISMATCH)
 
                 # Check parameters consistency
                 for parameterIndex, parameterRegisterIndex in enumerate(providedParameters):
@@ -98,11 +141,13 @@ class Analyse1(Analyser):
                     # Check if the content of the given register match the parameter type
                     parameterRegisterContent = self._getRegisterContent(parameterRegisterIndex)
                     # Check if the content of the register is a valid subtype of the parameter type
-                    self._validateParameterType(parameterRegisterIndex, parameterRegisterContent, calledMethodParameters[parameterIndex])
+                    self._validateParameterType(parameterRegisterIndex, parameterRegisterContent,
+                                                calledMethodParameters[parameterIndex])
 
-                # If the method dosen't return void, push the return value to the stack
+                # If the method doesn't return void, push the return value to the stack
                 if calledMethodReturn != SMALI_VOID_TYPE:
-                    self._stack.append(calledMethodReturn)
+                    # self._stack.append(calledMethodReturn)
+                    self._putStack(calledMethodReturn)
             case 'filled-new-array':
                 # Retrieved the parameters
                 providedParameters: list[int] = self._getVariadicProvidedParameters(_instruction)
@@ -119,7 +164,8 @@ class Analyse1(Analyser):
                     # Check if the content of the register is a valid subtype of the array type
                     self._validateParameterType(registerIndex, registerContent, arrayContentType)
                 # Put the result object onto the stack
-                self._stack.append(arrayType)
+                # self._stack.append(arrayType)
+                self._putStack(arrayType)
             # TODO
             case _error:
                 exitError(f'Unhandled instruction35c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
@@ -135,16 +181,21 @@ class Analyse1(Analyser):
                 if not self._isValidLocalRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
                 # Check if the content of the register is not a primitive type or is initialized
-                if self._getRegisterContent(registerIndex) in PRIMITIVE_TYPES or self._getRegisterContent(registerIndex) is None:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' (check-cast) is a primitive value, not reference-bearing', ExitCode.CHECKCAST_AGAINST_PRIMITIVE_OR_NONE)
+                if self._getRegisterContent(registerIndex) in PRIMITIVE_TYPES or self._getRegisterContent(
+                        registerIndex) is None:
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' (check-cast) is a primitive value, not reference-bearing',
+                        ExitCode.CHECKCAST_AGAINST_PRIMITIVE_OR_NONE)
                 # Cast the argument to the given type (raise an error otherwise)
-                self._mem[registerIndex] = _instruction.cm.get_type(_instruction.BBBB)
+                # self._mem[registerIndex] = _instruction.cm.get_type(_instruction.BBBB)
+                self._putRegisterContent(registerIndex, _instruction.cm.get_type(_instruction.BBBB))
             case 'const-string':
                 # Check that the register is a valid register
                 if not self._isValidLocalRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
                 # Put string into the corresponding register
-                self._mem[registerIndex] = SMALI_STRING_TYPE
+                # self._mem[registerIndex] = SMALI_STRING_TYPE
+                self._putRegisterContent(registerIndex, SMALI_STRING_TYPE)
             case 'new-instance' | 'const-class':
                 # Get the register index
                 registerIndex: int = _instruction.AA
@@ -153,8 +204,10 @@ class Analyse1(Analyser):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
                 itemType: str = _instruction.cm.get_type(_instruction.BBBB)
                 if _instruction.get_name() == 'new-instance' and self._isArray(itemType):
-                    exitError(f'Type provided tp \'new-instance\' instruction is {itemType}, which is an array type', ExitCode.NEW_INSTANCE_AGAINST_ARRAY)
-                self._mem[registerIndex] = itemType
+                    exitError(f'Type provided tp \'new-instance\' instruction is {itemType}, which is an array type',
+                              ExitCode.NEW_INSTANCE_AGAINST_ARRAY)
+                # self._mem[registerIndex] = itemType
+                self._putRegisterContent(registerIndex, itemType)
             # TODO
             case _error:
                 exitError(f'Unhandled instruction21c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
@@ -167,13 +220,18 @@ class Analyse1(Analyser):
         # const-wide/32 write on a pair of registers
         if _instruction.get_name() == 'const-wide/32':
             if not self._isValidLocalRegisterNumber(registerIndex + 1):
-                exitError(f'Instruction \'{type(_instruction).__name__}\' uses invalid register number pair ({registerIndex}, {registerIndex + 1})', ExitCode.INVALID_REGISTER_INDEX)
-            self._mem[registerIndex] = SMALI_INT_TYPE
-            self._mem[registerIndex + 1] = SMALI_INT_TYPE
+                exitError(
+                    f'Instruction \'{type(_instruction).__name__}\' uses invalid register number pair ({registerIndex}, {registerIndex + 1})',
+                    ExitCode.INVALID_REGISTER_INDEX)
+            # self._mem[registerIndex] = SMALI_INT_TYPE
+            # self._mem[registerIndex + 1] = SMALI_INT_TYPE
+            self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
+            self._putRegisterContent(registerIndex + 1, SMALI_INT_TYPE)
         else:
             if not self._isValidLocalRegisterNumber(registerIndex):
                 self._Error_invalidRegisterNumber(_instruction, registerIndex)
-            self._mem[registerIndex] = SMALI_INT_TYPE
+            # self._mem[registerIndex] = SMALI_INT_TYPE
+            self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
 
     # TODO
     def _analyse11x(self, _instruction: Instruction11x) -> None:
@@ -183,7 +241,9 @@ class Analyse1(Analyser):
             case 'move-result-object' | 'move-result':
                 # Check if the last instruction was an invoke-kind or fill-new-array
                 if not self._lastWasInvokeKindOrFillNewArray:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' is not preceded by an invoke-kind or fill-new-array instruction', ExitCode.MISSING_INVOKE_KIND_OR_FILL_NEW_ARRAY)
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' is not preceded by an invoke-kind or fill-new-array instruction',
+                        ExitCode.MISSING_INVOKE_KIND_OR_FILL_NEW_ARRAY)
                 self._lastWasInvokeKindOrFillNewArray = False
                 # Check if the register is a valid register (only in local because we write in them)
                 if not self._isValidLocalRegisterNumber(registerIndex):
@@ -192,33 +252,45 @@ class Analyse1(Analyser):
                 if len(self._stack) == 0:
                     exitError(f'The stack is empty', ExitCode.MOVE_RESULT_ON_EMPTY_STACK)
                 # TODO Comment
-                itemType: str = self._stack.pop()
+                # itemType: str = self._stack.pop()
+                itemType: str = self._popStack()
                 match _instruction.get_name():
                     case 'move-result':
                         if itemType not in PRIMITIVE_TYPES:
-                            exitError(f'Move result expects a primitive type on the stack, but \'{itemType}\' provided', ExitCode.MOVE_RESULT_ON_OBJECT_TYPE)
+                            exitError(f'Move result expects a primitive type on the stack, but \'{itemType}\' provided',
+                                      ExitCode.MOVE_RESULT_ON_OBJECT_TYPE)
                     case 'move-result-object':
                         if itemType in PRIMITIVE_TYPES:
-                            exitError(f'Move result object expects an object type on the stack, but \'{itemType}\' provided', ExitCode.MOVE_RESULT_OBJECT_ON_PRIMITIVE_TYPE)
+                            exitError(
+                                f'Move result object expects an object type on the stack, but \'{itemType}\' provided',
+                                ExitCode.MOVE_RESULT_OBJECT_ON_PRIMITIVE_TYPE)
 
                 # Move the type of the last element on the stack to the given register
-                self._mem[registerIndex] = itemType
+                # self._mem[registerIndex] = itemType
+                self._putRegisterContent(registerIndex, itemType)
             case 'return-object' | 'return':
                 self._lastWasInvokeKindOrFillNewArray = False
                 # Check if the register is a valid register (only in local because we write in them)
                 if not self._isValidRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)
-                returnedItemType: str = self._mem[registerIndex]
+                # returnedItemType: str = self._mem[registerIndex]
+                returnedItemType: str = self._getRegisterContent(registerIndex)
                 # return-object can't return a primitive type
                 if returnedItemType in PRIMITIVE_TYPES and _instruction.get_name() == 'return-object':
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' (return-object) can\'t return a primitive type \'{returnedItemType}\'', ExitCode.RETURN_OBJECT_ON_PRIMITIVE_TYPE)
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' (return-object) can\'t return a primitive type \'{returnedItemType}\'',
+                        ExitCode.RETURN_OBJECT_ON_PRIMITIVE_TYPE)
                 # return can't return an object type
                 elif returnedItemType not in PRIMITIVE_TYPES and _instruction.get_name() == 'return':
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' (return) can\'t return a non-primitive type \'{returnedItemType}\'', ExitCode.RETURN_ON_OBJECT_TYPE)
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' (return) can\'t return a non-primitive type \'{returnedItemType}\'',
+                        ExitCode.RETURN_ON_OBJECT_TYPE)
                 # TODO check if object is a subtype
                 # Check if the returned type is compatible with the method return type
                 if returnedItemType != self._methodInfos[MethodKeys.RETURNTYPE]:
-                    exitError(f'Method \'{self._methodInfos[MethodKeys.NAME]}\' is supposed to return \'{self._methodInfos[MethodKeys.RETURNTYPE]}\', but \'{returnedItemType}\' given', ExitCode.RETURN_TYPE_MISMATCH)
+                    exitError(
+                        f'Method \'{self._methodInfos[MethodKeys.NAME]}\' is supposed to return \'{self._methodInfos[MethodKeys.RETURNTYPE]}\', but \'{returnedItemType}\' given',
+                        ExitCode.RETURN_TYPE_MISMATCH)
             # TODO
             case _error:
                 exitError(f'Unhandled instruction11x subtype {_error}', ExitCode.UNHANDLED_CASE)
@@ -247,7 +319,8 @@ class Analyse1(Analyser):
         if not self._isValidRegisterNumber(secondRegisterIndex):
             self._Error_invalidRegisterNumber(_instruction, secondRegisterIndex)
         if self._getRegisterContent(firstRegisterIndex) != self._getRegisterContent(secondRegisterIndex):
-            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t compare different values types', ExitCode.INVALID_REGISTER_TYPE)
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t compare different values types',
+                      ExitCode.INVALID_REGISTER_TYPE)
         offset: int = _instruction.CCCC
         if offset == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t have a 0 offset', ExitCode.INVALID_OFFSET)
@@ -267,62 +340,89 @@ class Analyse1(Analyser):
             # Move
             case 0x1:
                 if _fromRegisterContent not in PRIMITIVE_TYPES:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type', ExitCode.INVALID_REGISTER_TYPE)
-                self._mem[_toRegisterIndex] = _fromRegisterContent
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type',
+                              ExitCode.INVALID_REGISTER_TYPE)
+                # self._mem[_toRegisterIndex] = _fromRegisterContent
+                self._putRegisterContent(_toRegisterIndex, _fromRegisterContent)
             # Move-wide
             case 0x4:
                 if _fromRegisterContent not in PRIMITIVE_TYPES:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type', ExitCode.INVALID_REGISTER_TYPE)
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type',
+                              ExitCode.INVALID_REGISTER_TYPE)
                 if not self._isValidRegisterNumber(_fromRegisterIndex + 1):
                     self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex + 1)
                 if not self._isValidLocalRegisterNumber(_toRegisterIndex + 1):
                     self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex + 1)
                 if _fromRegisterContent != self._getRegisterContent(_fromRegisterIndex + 1):
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' source pair types dosen\'t match(\'{_fromRegisterContent}\', {self._getRegisterContent(_fromRegisterIndex + 1)}\')', ExitCode.INVALID_REGISTER_TYPE)
-                self._mem[_toRegisterIndex] = _fromRegisterContent
-                self._mem[_toRegisterIndex + 1] = self._getRegisterContent(_fromRegisterIndex + 1)
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' source pair types dosen\'t match(\'{_fromRegisterContent}\', {self._getRegisterContent(_fromRegisterIndex + 1)}\')',
+                        ExitCode.INVALID_REGISTER_TYPE)
+                # self._mem[_toRegisterIndex] = _fromRegisterContent
+                # self._mem[_toRegisterIndex + 1] = self._getRegisterContent(_fromRegisterIndex + 1)
+                self._putRegisterContent(_toRegisterIndex, _fromRegisterContent)
+                self._putRegisterContent(_toRegisterIndex + 1, self._getRegisterContent(_fromRegisterIndex + 1))
             # Move-object
             case 0x7:
                 if _fromRegisterContent in PRIMITIVE_TYPES:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a primitive type', ExitCode.INVALID_REGISTER_TYPE)
-                self._mem[_toRegisterIndex] = _fromRegisterContent
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a primitive type',
+                              ExitCode.INVALID_REGISTER_TYPE)
+                # self._mem[_toRegisterIndex] = _fromRegisterContent
+                self._putRegisterContent(_toRegisterIndex, _fromRegisterContent)
             # Unop neg or not
             case op if 0x7b <= op <= 0x80:
                 _splittedOp: list[str] = _instruction.get_name().split('-')
-                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                assert len(
+                    _splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
                 _op, _type = _splittedOp[0], humanTypeToSmaliType(_splittedOp[1])
-                if self._mem[_fromRegisterIndex] != _type:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t negate a \'{self._mem[_fromRegisterIndex]}\'', ExitCode.INVALID_REGISTER_TYPE)
+                # if self._mem[_fromRegisterIndex] != _type:
+                if self._getRegisterContent(_fromRegisterIndex) != _type:
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' can\'t negate a \'{self._mem[_fromRegisterIndex]}\'',
+                        ExitCode.INVALID_REGISTER_TYPE)
                 match _op:
                     case 'neg':
-                        self._mem[_toRegisterIndex] = _type
+                        # self._mem[_toRegisterIndex] = _type
+                        self._putRegisterContent(_toRegisterIndex, _type)
                     case 'not':
-                        self._mem[_toRegisterIndex] = SMALI_BOOLEAN_TYPE
+                        # self._mem[_toRegisterIndex] = SMALI_BOOLEAN_TYPE
+                        self._putRegisterContent(_toRegisterIndex, SMALI_BOOLEAN_TYPE)
                     case _error:
-                        exitError(f'Unhandled instruction12x subtype \'{_instruction.get_name()}\' (Op: \'{_error}\')', ExitCode.UNHANDLED_CASE)
+                        exitError(f'Unhandled instruction12x subtype \'{_instruction.get_name()}\' (Op: \'{_error}\')',
+                                  ExitCode.UNHANDLED_CASE)
             # Unop cast
             case op if 0x81 <= op <= 0x8f:
                 _splittedOp: list[str] = _instruction.get_name().split('-to-')
-                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                assert len(
+                    _splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
                 _fromType, _toType = [humanTypeToSmaliType(x) for x in _splittedOp]
-                if self._mem[_fromRegisterIndex] != _fromType:
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{_fromType}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
-                self._mem[_toRegisterIndex] = _toType
+                # if self._mem[_fromRegisterIndex] != _fromType:
+                if self._getRegisterContent(_fromRegisterIndex) != _fromType:
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' expects a \'{_fromType}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided',
+                        ExitCode.INVALID_REGISTER_TYPE)
+                # self._mem[_toRegisterIndex] = _toType
+                self._putRegisterContent(_toRegisterIndex, _toType)
             # Binop 2addr
             case op if 0xb0 <= op <= 0xcf:
                 opName: str = _instruction.get_name().rstrip('/2addr')
                 _splittedOp: list[str] = opName.split('-')
-                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                assert len(
+                    _splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
                 _op, _type = _splittedOp[0], humanTypeToSmaliType(_splittedOp[1])
                 if not self._isValidRegisterNumber(_toRegisterIndex + 1):
                     self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
                 if not self._isValidRegisterNumber(_fromRegisterIndex + 1):
                     self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
                 if _fromRegisterContent != self._getRegisterContent(_fromRegisterIndex + 1):
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{_fromRegisterContent}\', \'{self._getRegisterContent(_fromRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_fromRegisterIndex + 1)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{_fromRegisterContent}\', \'{self._getRegisterContent(_fromRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_fromRegisterIndex + 1)}\' provided',
+                        ExitCode.INVALID_REGISTER_TYPE)
                 if self._getRegisterContent(_toRegisterIndex) != self._getRegisterContent(_toRegisterIndex + 1):
-                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{self._getRegisterContent(_toRegisterIndex)}\', \'{self._getRegisterContent(_toRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_toRegisterIndex + 1)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
-                self._mem[_toRegisterIndex] = _type
+                    exitError(
+                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{self._getRegisterContent(_toRegisterIndex)}\', \'{self._getRegisterContent(_toRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_toRegisterIndex + 1)}\' provided',
+                        ExitCode.INVALID_REGISTER_TYPE)
+                # self._mem[_toRegisterIndex] = _type
+                self._putRegisterContent(_toRegisterIndex, _type)
             case _error:
                 exitError(f'Unhandled instruction12x subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
 
@@ -336,11 +436,15 @@ class Analyse1(Analyser):
             self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
         if not self._isValidRegisterNumber(_fromRegisterIndex):
             self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
-        if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
-            exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+        # if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
+        if self._getRegisterContent(_fromRegisterIndex) != SMALI_INT_TYPE:
+            exitError(
+                f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided',
+                ExitCode.INVALID_REGISTER_TYPE)
         if _instruction.get_name().startswith('div') and _instruction.CC == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t divide by 0', ExitCode.DIVIDE_BY_ZERO)
-        self._mem[_toRegisterIndex] = SMALI_INT_TYPE
+        # self._mem[_toRegisterIndex] = SMALI_INT_TYPE
+        self._putRegisterContent(_toRegisterIndex, SMALI_INT_TYPE)
 
     # TODO Comment
     def _analyse22s(self, _instruction: Instruction22s) -> None:
@@ -351,13 +455,17 @@ class Analyse1(Analyser):
             self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
         if not self._isValidRegisterNumber(_fromRegisterIndex):
             self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
-        if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
-            exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+        # if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
+        if self._getRegisterContent(_fromRegisterIndex) != SMALI_INT_TYPE:
+            exitError(
+                f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided',
+                ExitCode.INVALID_REGISTER_TYPE)
         if _instruction.get_name().startswith('div') and _instruction.CCCC == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t divide by 0', ExitCode.DIVIDE_BY_ZERO)
-        self._mem[_toRegisterIndex] = SMALI_INT_TYPE
+        # self._mem[_toRegisterIndex] = SMALI_INT_TYPE
+        self._putRegisterContent(_toRegisterIndex, SMALI_INT_TYPE)
 
-    def analyse(self, _instruction: Instruction) -> None:
+    def analyse(self, _instruction: Instruction, _predecessors: list[Instruction]) -> bool:
         """
         Main method that analyse the given instruction by redirecting it to the corresponding method.
         :param _instruction: The instruction to analyse
@@ -365,6 +473,10 @@ class Analyse1(Analyser):
         if self._verbose:
             self._printInstruction(_instruction)
             self._printMemory()
+
+        self._current = _instruction
+        if not self._setMemory(_predecessors):
+            return False
 
         match _instruction:
             # Instruction 10t:
@@ -766,3 +878,5 @@ class Analyse1(Analyser):
             # Unknwon instruction
             case _ as _instruction:
                 self._unhandled(_instruction)
+
+        return True
