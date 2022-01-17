@@ -1,7 +1,7 @@
 from androguard.core.analysis.analysis import Analysis, ClassAnalysis
 from androguard.core.bytecodes.dvm import Instruction, Instruction3rc, Instruction35c
 from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys, SMALI_OBJECT_TYPE, SMALI_BOOLEAN_TYPE, \
-    SMALI_INT_TYPE, SMALI_ARRAY_MARKER, Colors
+    SMALI_INT_TYPE, SMALI_ARRAY_MARKER, Colors, SMALI_OBJECT_MARKER
 
 # Type aliases for analysis
 Analyse1MemoryType: type = list[None or str]
@@ -220,8 +220,8 @@ class Analyser:
             if _firstCount != _secondCounter:
                 exitError(f'Array dimensions differs ({_firstCount} != {_secondCounter})', ExitCode.MISCMATCH_PARAMETER_TYPE)
 
-        if _secondValue.startswith('L'):
-            if not _firstValue.startswith('L'):
+        if _secondValue.startswith(SMALI_OBJECT_MARKER):
+            if not _firstValue.startswith(SMALI_OBJECT_MARKER):
                 exitError(f'Parameter expect type \'{_secondValue}\', but primitive type \'{_firstValue}\' given', ExitCode.MISCMATCH_PARAMETER_TYPE)
             # Check if the provided object is a subtype of the parameter
             if not self._isSubclass(_firstValue, _secondValue):

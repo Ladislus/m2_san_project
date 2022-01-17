@@ -20,3 +20,4 @@ PRIMITIVE_TYPES: list[str] = [SMALI_VOID_TYPE, SMALI_BOOLEAN_TYPE, SMALI_BYTE_TY
 SMALI_STRING_TYPE: str = 'Ljava/lang/String;'
 SMALI_OBJECT_TYPE: str = 'Ljava/lang/Object;'
 SMALI_ARRAY_MARKER: str = '['
+SMALI_OBJECT_MARKER: str = 'L'

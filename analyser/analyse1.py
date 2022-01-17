@@ -7,7 +7,7 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction52c, Instruction5rc
 from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, \
     SMALI_STRING_TYPE, \
-    SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType
+    SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType, SMALI_BOOLEAN_TYPE
 from analyser.analyser import Analyse1MemoryType, Analyser, Analyse1StackType
 
 
@@ -229,7 +229,7 @@ class Analyse1(Analyser):
         # Get the register index
         registerIndex: int = _instruction.AA
         # Check if the register is a valid register
-        if not self._isValidLocalRegisterNumber(registerIndex):
+        if not self._isValidRegisterNumber(registerIndex):
             self._Error_invalidRegisterNumber(_instruction, registerIndex)
         # Get the offset
         offset: int = _instruction.BBBB
@@ -238,28 +238,98 @@ class Analyse1(Analyser):
 
     # TODO Comment
     # Done
+    def _analyse22t(self, _instruction: Instruction22t) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        firstRegisterIndex: int = _instruction.A
+        secondRegisterIndex: int = _instruction.A
+        if not self._isValidRegisterNumber(firstRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, firstRegisterIndex)
+        if not self._isValidRegisterNumber(secondRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, secondRegisterIndex)
+        if self._getRegisterContent(firstRegisterIndex) != self._getRegisterContent(secondRegisterIndex):
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t compare different values types', ExitCode.INVALID_REGISTER_TYPE)
+        offset: int = _instruction.CCCC
+        if offset == 0:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t have a 0 offset', ExitCode.INVALID_OFFSET)
+
+    # TODO Comment
     def _analyse12x(self, _instruction: Instruction12x) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        _toRegisterIndex: int = _instruction.A
+        _fromRegisterIndex: int = _instruction.B
+        _fromRegisterContent: str = self._getRegisterContent(_fromRegisterIndex)
+        if not self._isValidRegisterNumber(_fromRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
+        if not self._isValidLocalRegisterNumber(_toRegisterIndex):
+            self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+
         match _instruction.get_op_value():
+            # Move
+            case 0x1:
+                if _fromRegisterContent not in PRIMITIVE_TYPES:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type', ExitCode.INVALID_REGISTER_TYPE)
+                self._mem[_toRegisterIndex] = _fromRegisterContent
+            # Move-wide
+            case 0x4:
+                if _fromRegisterContent not in PRIMITIVE_TYPES:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a non-primitive type', ExitCode.INVALID_REGISTER_TYPE)
+                if not self._isValidRegisterNumber(_fromRegisterIndex + 1):
+                    self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex + 1)
+                if not self._isValidLocalRegisterNumber(_toRegisterIndex + 1):
+                    self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex + 1)
+                if _fromRegisterContent != self._getRegisterContent(_fromRegisterIndex + 1):
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' source pair types dosen\'t match(\'{_fromRegisterContent}\', {self._getRegisterContent(_fromRegisterIndex + 1)}\')', ExitCode.INVALID_REGISTER_TYPE)
+                self._mem[_toRegisterIndex] = _fromRegisterContent
+                self._mem[_toRegisterIndex + 1] = self._getRegisterContent(_fromRegisterIndex + 1)
+            # Move-object
+            case 0x7:
+                if _fromRegisterContent in PRIMITIVE_TYPES:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t copy a primitive type', ExitCode.INVALID_REGISTER_TYPE)
+                self._mem[_toRegisterIndex] = _fromRegisterContent
+            # Unop neg or not
+            case op if 0x7b <= op <= 0x80:
+                _splittedOp: list[str] = _instruction.get_name().split('-')
+                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                _op, _type = _splittedOp[0], humanTypeToSmaliType(_splittedOp[1])
+                if self._mem[_fromRegisterIndex] != _type:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t negate a \'{self._mem[_fromRegisterIndex]}\'', ExitCode.INVALID_REGISTER_TYPE)
+                match _op:
+                    case 'neg':
+                        self._mem[_toRegisterIndex] = _type
+                    case 'not':
+                        self._mem[_toRegisterIndex] = SMALI_BOOLEAN_TYPE
+                    case _error:
+                        exitError(f'Unhandled instruction12x subtype \'{_instruction.get_name()}\' (Op: \'{_error}\')', ExitCode.UNHANDLED_CASE)
+            # Unop cast
             case op if 0x81 <= op <= 0x8f:
-                _fromType, _toType = [humanTypeToSmaliType(x) for x in _instruction.get_name().split('-to-')]
-                _toRegisterIndex: int = _instruction.A
-                _fromRegisterIndex: int = _instruction.B
-
-                print(f'From: {_fromType} (v{_fromRegisterIndex}) -> To: {_toType} (v{_toRegisterIndex})')
-
-                if not self._isValidRegisterNumber(_fromRegisterIndex):
-                    self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
-                if not self._isValidLocalRegisterNumber(_toRegisterIndex):
-                    self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+                _splittedOp: list[str] = _instruction.get_name().split('-to-')
+                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                _fromType, _toType = [humanTypeToSmaliType(x) for x in _splittedOp]
                 if self._mem[_fromRegisterIndex] != _fromType:
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{_fromType}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
                 self._mem[_toRegisterIndex] = _toType
+            # Binop 2addr
+            case op if 0xb0 <= op <= 0xcf:
+                opName: str = _instruction.get_name().rstrip('/2addr')
+                _splittedOp: list[str] = opName.split('-')
+                assert len(_splittedOp) == 2, f'Instruction \'{type(_instruction).__name__}\' has an invalid name \'{_instruction.get_name()}\''
+                _op, _type = _splittedOp[0], humanTypeToSmaliType(_splittedOp[1])
+                if not self._isValidRegisterNumber(_toRegisterIndex + 1):
+                    self._Error_invalidRegisterNumber(_instruction, _toRegisterIndex)
+                if not self._isValidRegisterNumber(_fromRegisterIndex + 1):
+                    self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
+                if _fromRegisterContent != self._getRegisterContent(_fromRegisterIndex + 1):
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{_fromRegisterContent}\', \'{self._getRegisterContent(_fromRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_fromRegisterIndex + 1)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                if self._getRegisterContent(_toRegisterIndex) != self._getRegisterContent(_toRegisterIndex + 1):
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{self._getRegisterContent(_toRegisterIndex)}\', \'{self._getRegisterContent(_toRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_toRegisterIndex + 1)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                self._mem[_toRegisterIndex] = _type
             case _error:
                 exitError(f'Unhandled instruction12x subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
 
     # TODO Comment
     # Done
     def _analyse22b(self, _instruction: Instruction22b) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
         _toRegisterIndex: int = _instruction.AA
         _fromRegisterIndex: int = _instruction.BB
         if not self._isValidLocalRegisterNumber(_toRegisterIndex):
@@ -274,6 +344,7 @@ class Analyse1(Analyser):
 
     # TODO Comment
     def _analyse22s(self, _instruction: Instruction22s) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
         _toRegisterIndex: int = _instruction.A
         _fromRegisterIndex: int = _instruction.B
         if not self._isValidLocalRegisterNumber(_toRegisterIndex):
@@ -281,9 +352,7 @@ class Analyse1(Analyser):
         if not self._isValidRegisterNumber(_fromRegisterIndex):
             self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
         if self._mem[_fromRegisterIndex] != SMALI_INT_TYPE:
-            exitError(
-                f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided',
-                ExitCode.INVALID_REGISTER_TYPE)
+            exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{SMALI_INT_TYPE}\' on register \'{_fromRegisterIndex}\', but \'{self._mem[_fromRegisterIndex]}\' provided', ExitCode.INVALID_REGISTER_TYPE)
         if _instruction.get_name().startswith('div') and _instruction.CCCC == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t divide by 0', ExitCode.DIVIDE_BY_ZERO)
         self._mem[_toRegisterIndex] = SMALI_INT_TYPE
@@ -516,7 +585,7 @@ class Analyse1(Analyser):
             #   36 -> `if-gt`
             #   37 -> `if-le`
             case Instruction22t() as _inst22t:
-                self._unhandled(_inst22t)
+                self._analyse22t(_inst22t)
 
             # Instruction 22x:
             # 02  -> `move/from16 vAA, vBBBB`
