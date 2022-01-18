@@ -4,14 +4,24 @@ from tools import APKInfos, MethodInfos, exitError, ExitCode, MethodKeys, SMALI_
     SMALI_INT_TYPE, SMALI_ARRAY_MARKER, Colors, SMALI_OBJECT_MARKER
 
 # Type aliases for analysis
-Analyse1MemoryContentType: type = list[None or str]
-Analyse1MemoryType: type = dict[Instruction, Analyse1MemoryContentType]
-Analyse1StackContentType: type = list[str]
-Analyse1StackType: type = dict[Instruction, Analyse1StackContentType]
-Analyse2MemoryType: type = list[None or bool]
-Analyse2StackType: type = list[str]
+Analyse1MemoryContentType: type = str or None
+Analyse1SubmemoryType: type = list[Analyse1MemoryContentType]
+Analyse1MemoryType: type = dict[Instruction, Analyse1SubmemoryType]
+Analyse1StackContentType: type = str
+Analyse1SubstackType: type = list[Analyse1StackContentType]
+Analyse1StackType: type = dict[Instruction, Analyse1SubstackType]
+
+
+Analyse2MemoryContentType: type = tuple[str or None, bool]
+Analyse2SubmemoryType: type = list[Analyse2MemoryContentType]
+Analyse2MemoryType: type = dict[Instruction, Analyse2SubmemoryType]
+Analyse2StackContentType: type = str
+Analyse2SubstackType: type = list[Analyse2StackContentType]
+Analyse2StackType: type = dict[Instruction, Analyse2SubstackType]
 
 # Type union
+AnalyseMemoryContentType: type = Analyse1MemoryContentType or Analyse2MemoryContentType
+AnalyseStackContentType: type = Analyse1StackContentType or Analyse2StackContentType
 AnalyseMemoryType: type = Analyse1MemoryType or Analyse2MemoryType
 AnalyseStackType: type = Analyse1StackType or Analyse2StackType
 
@@ -38,8 +48,10 @@ class Analyser:
         self._lastWasInvokeKindOrFillNewArray: bool = False
         self._current: Instruction or None = None
 
-    def analyse(self, instruction: Instruction):
+    def analyse(self, instruction: Instruction, **kwargs) -> bool:
         exitError('Method `analyse()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
+        # Placeholder return to please the linter
+        return True
 
     # CHECKERS
 
@@ -73,7 +85,6 @@ class Analyser:
         else:
             return _first == _second
 
-    # FIXME
     def _isSubclass(self, _className: str, _superclassName: str) -> bool:
         """
         Method to find if a class is a subclass of another one
@@ -112,28 +123,21 @@ class Analyser:
 
     # GETTERS
 
-    def _putRegisterContent(self, _registerIndex: int, _value: str) -> None:
-        assert self._current is not None, f'Current instruction is None'
-        self._mem[self._current][_registerIndex] = _value
+    def _putRegisterContent(self, _registerIndex: int, _value: AnalyseMemoryContentType) -> None:
+        exitError('Method `_putRegisterContent()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
 
-    def _getRegisterContent(self, _registerIndex: int) -> str | None:
-        """
-        Return the content of a register given its index
-        :param _registerIndex: The index of the register
-        :return: A string representing the type of content, None if empty
-        """
-        assert self._current is not None, f'Current instruction is None'
-        if not self._isValidRegisterNumber(_registerIndex):
-            exitError(f'Invalid register index \'{_registerIndex}\'', ExitCode.INVALID_REGISTER_INDEX)
-        return self._mem[self._current][_registerIndex]
+    def _getRegisterContent(self, _registerIndex: int) -> Analyse1MemoryContentType:
+        exitError('Method `_getRegisterContent()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
+        # Placeholder return to please linter
+        return ''
 
-    def _putStack(self, _value: str) -> None:
-        assert self._current is not None, f'Current instruction is None'
-        self._stack[self._current].append(_value)
+    def _putStack(self, _value: AnalyseStackContentType) -> None:
+        exitError('Method `_putStack()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
 
-    def _popStack(self) -> str:
-        assert self._current is not None, f'Current instruction is None'
-        return self._stack[self._current].pop()
+    def _popStack(self) -> AnalyseStackContentType:
+        exitError('Method `_popStack()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
+        # Placeholder return to please linter
+        return ''
 
     # ANALYSIS
 
@@ -170,11 +174,7 @@ class Analyser:
         )
 
     def _printMemory(self):
-        print('\tMemory:')
-        [print(f'\t\tv{x}: \'{self._getRegisterContent(x)}\'') for x in range(len(self._mem[self._current]))]
-        print('\tStack [')
-        [print(f'\t\t\'{self._stack[self._current][x]}\'') for x in range(len(self._stack[self._current]))]
-        print('\t]')
+        exitError('Method `_printMemory()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
 
     # UTILS
 

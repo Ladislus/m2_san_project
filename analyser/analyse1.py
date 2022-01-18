@@ -6,18 +6,26 @@ from androguard.core.bytecodes.dvm import Instruction, Instruction12x, Instructi
     Instruction35ms, Instruction3rc, Instruction3rmi, Instruction3rms, Instruction40sc, Instruction41c, Instruction51l, \
     Instruction52c, Instruction5rc
 from tools import APKInfos, ExitCode, MethodInfos, MethodKeys, exitError, PRIMITIVE_TYPES, SMALI_STRING_TYPE, \
-    SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType, SMALI_BOOLEAN_TYPE
-from analyser.analyser import Analyser, Analyse1MemoryContentType, Analyse1StackContentType
+    SMALI_INT_TYPE, SMALI_VOID_TYPE, humanTypeToSmaliType, SMALI_BOOLEAN_TYPE, SMALI_OBJECT_MARKER
+from analyser.analyser import Analyser, Analyse1SubmemoryType, Analyse1SubstackType, Analyse1MemoryContentType, \
+    Analyse1StackContentType
 
 
 class Analyse1(Analyser):
     def __init__(self, apkInfos: APKInfos, methodInfos: MethodInfos, analysis: Analysis, verbose: bool):
         super().__init__({}, {}, apkInfos, methodInfos, analysis, verbose)
 
+    def _printMemory(self):
+        print('\tMemory:')
+        [print(f'\t\tv{x}: \'{self._getRegisterContent(x)}\'') for x in range(len(self._mem[self._current]))]
+        print('\tStack [')
+        [print(f'\t\t\'{self._stack[self._current][x]}\'') for x in range(len(self._stack[self._current]))]
+        print('\t]')
+
     def _initMemoryFirst(self) -> None:
         assert self._current is not None, f'Current instruction is None'
         # Initialyse memory
-        memory: Analyse1MemoryContentType = [None] * (
+        memory: Analyse1SubmemoryType = [None] * (
                 self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] + self._methodInfos[MethodKeys.PARAMETERCOUNT])
         # Smali: Last local register is the "this" (ie: current classname)
         if self._methodInfos[MethodKeys.LOCALREGISTERCOUNT] > 0 and not self._methodInfos[MethodKeys.STATIC]:
@@ -25,7 +33,7 @@ class Analyse1(Analyser):
         # Add parameters type after the local registers
         for index, value in self._methodInfos[MethodKeys.PARAMS]:
             memory[index] = value
-        stack: Analyse1StackContentType = []
+        stack: Analyse1SubstackType = []
         self._mem[self._current] = memory
         self._stack[self._current] = stack
 
@@ -41,8 +49,8 @@ class Analyse1(Analyser):
         # First time we analyse this node
         elif self._current not in self._mem.keys():
             # Union des predecesseurs
-            memory: Analyse1MemoryContentType or None = None
-            stack: Analyse1StackContentType or None = None
+            memory: Analyse1SubmemoryType or None = None
+            stack: Analyse1SubstackType or None = None
             for predecessor in _predecessors:
                 if predecessor not in self._mem.keys():
                     continue
@@ -50,8 +58,8 @@ class Analyse1(Analyser):
                     memory = self._mem[predecessor].copy()
                     stack = self._stack[predecessor].copy()
                 else:
-                    predecessorMemory: Analyse1MemoryContentType = self._mem[predecessor]
-                    predecessorStack: Analyse1StackContentType = self._stack[predecessor]
+                    predecessorMemory: Analyse1SubmemoryType = self._mem[predecessor]
+                    predecessorStack: Analyse1SubstackType = self._stack[predecessor]
                     if len(predecessorMemory) != len(memory):
                         exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
                     if len(stack) != len(predecessorStack):
@@ -67,11 +75,11 @@ class Analyse1(Analyser):
             return True
         # We already analysed this node
         else:
-            previousMemory: Analyse1MemoryContentType = self._mem[self._current].copy()
-            previousStack: Analyse1StackContentType = self._stack[self._current].copy()
+            previousMemory: Analyse1SubmemoryType = self._mem[self._current].copy()
+            previousStack: Analyse1SubstackType = self._stack[self._current].copy()
             for predecessor in _predecessors:
-                predecessorMemory: Analyse1MemoryContentType = self._mem[predecessor]
-                predecessorStack: Analyse1StackContentType = self._stack[predecessor]
+                predecessorMemory: Analyse1SubmemoryType = self._mem[predecessor]
+                predecessorStack: Analyse1SubstackType = self._stack[predecessor]
                 if len(predecessorMemory) != len(self._mem[self._current]):
                     exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
                 if len(self._stack[self._current]) != len(predecessorStack):
@@ -87,6 +95,29 @@ class Analyse1(Analyser):
             if previousStack != self._stack[self._current]:
                 return True
             return False
+
+    def _putRegisterContent(self, _registerIndex: int, _value: Analyse1MemoryContentType) -> None:
+        assert self._current is not None, f'Current instruction is None'
+        self._mem[self._current][_registerIndex] = _value
+
+    def _getRegisterContent(self, _registerIndex: int) -> Analyse1MemoryContentType:
+        """
+        Return the content of a register given its index
+        :param _registerIndex: The index of the register
+        :return: A string representing the type of content, None if empty
+        """
+        assert self._current is not None, f'Current instruction is None'
+        if not self._isValidRegisterNumber(_registerIndex):
+            exitError(f'Invalid register index \'{_registerIndex}\'', ExitCode.INVALID_REGISTER_INDEX)
+        return self._mem[self._current][_registerIndex]
+
+    def _putStack(self, _value: Analyse1StackContentType) -> None:
+        assert self._current is not None, f'Current instruction is None'
+        self._stack[self._current].append(_value)
+
+    def _popStack(self) -> Analyse1StackContentType:
+        assert self._current is not None, f'Current instruction is None'
+        return self._stack[self._current].pop()
 
     # DONE
     def _analyse10x(self, _instruction: Instruction10x) -> None:
@@ -380,6 +411,10 @@ class Analyse1(Analyser):
         # Check if the register is a valid register
         if not self._isValidRegisterNumber(registerIndex):
             self._Error_invalidRegisterNumber(_instruction, registerIndex)
+
+        if self._getRegisterContent(registerIndex) not in PRIMITIVE_TYPES:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t be used on an object type', ExitCode.INVALID_REGISTER_TYPE)
+
         # Get the offset
         offset: int = _instruction.BBBB
         if offset == 0:
@@ -398,6 +433,9 @@ class Analyse1(Analyser):
         if self._getRegisterContent(firstRegisterIndex) != self._getRegisterContent(secondRegisterIndex):
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t compare different values types',
                       ExitCode.INVALID_REGISTER_TYPE)
+
+        if self._getRegisterContent(firstRegisterIndex) not in PRIMITIVE_TYPES:
+            exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t be used on an object type', ExitCode.INVALID_REGISTER_TYPE)
         offset: int = _instruction.CCCC
         if offset == 0:
             exitError(f'Instruction \'{type(_instruction).__name__}\' can\'t have a 0 offset', ExitCode.INVALID_OFFSET)
@@ -577,6 +615,9 @@ class Analyse1(Analyser):
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{classType}\' on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
                 if self._getRegisterContent(fromRegisterIndex) != fieldType:
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{fieldType}\' on register \'{fromRegisterIndex}\', but \'{self._getRegisterContent(fromRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                if self._getRegisterContent(toRegisterIndex).startswith(SMALI_OBJECT_MARKER):
+                    if not _instruction.get_name().endswith('-object'):
+                        exitError(f'Instruction \'{type(_instruction).__name__}\' expects an object on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
             case _error:
                 exitError(f'Unhandled instruction22c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
 

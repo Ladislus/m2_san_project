@@ -40,6 +40,7 @@ class ExitCode(Enum):
     DIVIDE_BY_ZERO = auto()
     NO_MEMORY = auto()
     MEMORY_ERROR = auto()
+    UNINITIALISED_OBJECT = auto()
 
 
 class Colors:
