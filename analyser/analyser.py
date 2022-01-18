@@ -253,7 +253,7 @@ class Analyser:
                     todoFirst.add(_a.extends)
                     [todoFirst.add(x) for x in _a.implements]
         while len(todoSecond) > 0:
-            curr = todoFirst.pop(0)
+            curr = todoSecond.pop(0)
             if curr in doneFirst:
                 return curr
             _a: ClassAnalysis = self._analysis.get_class_analysis(curr)

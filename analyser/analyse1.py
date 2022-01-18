@@ -30,6 +30,10 @@ class Analyse1(Analyser):
         self._stack[self._current] = stack
 
     def _setMemory(self, _predecessors: list[Instruction]) -> bool:
+        # Memory dosen't matter in case of return-void
+        if self._current.get_name() == 'return-void':
+            return True
+
         # First time we enter the method
         if len(self._mem.keys()) == 0:
             self._initMemoryFirst()
@@ -236,6 +240,33 @@ class Analyse1(Analyser):
                               ExitCode.NEW_INSTANCE_AGAINST_ARRAY)
                 # self._mem[registerIndex] = itemType
                 self._putRegisterContent(registerIndex, itemType)
+            case get if get[1:4] == 'get':
+                # Get the register index
+                registerIndex: int = _instruction.AA
+                # Check that the register is a valid register
+                if get.endswith('-wide'):
+                    if not self._isValidLocalRegisterNumber(registerIndex + 1):
+                        self._Error_invalidRegisterNumber(_instruction, registerIndex + 1)
+                else:
+                    if not self._isValidLocalRegisterNumber(registerIndex):
+                        self._Error_invalidRegisterNumber(_instruction, registerIndex)
+                _, fieldType, _ = _instruction.cm.get_field(_instruction.BBBB)
+                self._putRegisterContent(registerIndex, fieldType)
+                if get.endswith('-wide'):
+                    self._putRegisterContent(registerIndex + 1, fieldType)
+            case get if get[1:4] == 'put':
+                registerIndex = _instruction.AA
+                if get.endswith('-wide'):
+                    if not self._isValidRegisterNumber(registerIndex + 1):
+                        self._Error_invalidRegisterNumber(_instruction, registerIndex + 1)
+                    if self._getRegisterContent(registerIndex) != self._getRegisterContent(registerIndex + 1):
+                        exitError(f'Type provided to \'put-wide\' instruction is {self._getRegisterContent(registerIndex)} and {self._getRegisterContent(registerIndex + 1)}, which are different', ExitCode.INVALID_REGISTER_TYPE)
+                else:
+                    if not self._isValidRegisterNumber(registerIndex):
+                        self._Error_invalidRegisterNumber(_instruction, registerIndex)
+                _, fieldType, _ = _instruction.cm.get_field(_instruction.BBBB)
+                if self._getRegisterContent(registerIndex) != fieldType:
+                    exitError(f'Type provided to \'put\' instruction is {self._getRegisterContent(registerIndex)}, which is not the same as the field type {fieldType}', ExitCode.INVALID_REGISTER_TYPE)
             # TODO
             case _error:
                 exitError(f'Unhandled instruction21c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
@@ -461,12 +492,10 @@ class Analyse1(Analyser):
                     self._Error_invalidRegisterNumber(_instruction, _fromRegisterIndex)
                 if _fromRegisterContent != self._getRegisterContent(_fromRegisterIndex + 1):
                     exitError(
-                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{_fromRegisterContent}\', \'{self._getRegisterContent(_fromRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_fromRegisterIndex + 1)}\' provided',
-                        ExitCode.INVALID_REGISTER_TYPE)
+                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{_fromRegisterContent}\', \'{self._getRegisterContent(_fromRegisterIndex + 1)}\') provided', ExitCode.INVALID_REGISTER_TYPE)
                 if self._getRegisterContent(_toRegisterIndex) != self._getRegisterContent(_toRegisterIndex + 1):
                     exitError(
-                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{self._getRegisterContent(_toRegisterIndex)}\', \'{self._getRegisterContent(_toRegisterIndex + 1)}\') provided, but \'{self._getRegisterContent(_toRegisterIndex + 1)}\' provided',
-                        ExitCode.INVALID_REGISTER_TYPE)
+                        f'Instruction \'{type(_instruction).__name__}\' expects a couple of {_type}, but (\'{self._getRegisterContent(_toRegisterIndex)}\', \'{self._getRegisterContent(_toRegisterIndex + 1)}\') provided', ExitCode.INVALID_REGISTER_TYPE)
                 # self._mem[_toRegisterIndex] = _type
                 self._putRegisterContent(_toRegisterIndex, _type)
             case _error:
@@ -511,6 +540,46 @@ class Analyse1(Analyser):
         # self._mem[_toRegisterIndex] = SMALI_INT_TYPE
         self._putRegisterContent(_toRegisterIndex, SMALI_INT_TYPE)
 
+    def _analyse22c(self, _instruction: Instruction22c) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        match _instruction.get_op_value():
+            # Case IGet
+            case _iinstance if 0x52 <= _iinstance <= 0x58:
+                toRegisterIndex: int = _instruction.A
+                fromRegisterIndex: int = _instruction.B
+                classType, fieldType, _ = _instruction.cm.get_field(_instruction.CCCC)
+                if not self._isValidLocalRegisterNumber(toRegisterIndex):
+                    self._Error_invalidRegisterNumber(_instruction, toRegisterIndex)
+                if _instruction.get_name().endswith('-wide'):
+                    if not self._isValidLocalRegisterNumber(toRegisterIndex + 1):
+                        self._Error_invalidRegisterNumber(_instruction, toRegisterIndex + 1)
+                if not self._isValidRegisterNumber(fromRegisterIndex):
+                    self._Error_invalidRegisterNumber(_instruction, fromRegisterIndex)
+                if not self._isSubclass(self._getRegisterContent(fromRegisterIndex), classType):
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{classType}\' on register \'{fromRegisterIndex}\', but \'{self._getRegisterContent(fromRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                self._putRegisterContent(toRegisterIndex, fieldType)
+                if _instruction.get_name().endswith('-wide'):
+                    self._putRegisterContent(toRegisterIndex + 1, fieldType)
+            # Case IPut
+            case _iinstance if 0x59 <= _iinstance <= 0x5f:
+                fromRegisterIndex: int = _instruction.A
+                toRegisterIndex: int = _instruction.B
+                classType, fieldType, _ = _instruction.cm.get_field(_instruction.CCCC)
+
+                if not self._isValidRegisterNumber(fromRegisterIndex):
+                    self._Error_invalidRegisterNumber(_instruction, fromRegisterIndex)
+                if _instruction.get_name().endswith('-wide'):
+                    if not self._isValidRegisterNumber(fromRegisterIndex + 1):
+                        self._Error_invalidRegisterNumber(_instruction, fromRegisterIndex + 1)
+                    if self._getRegisterContent(fromRegisterIndex) != self._getRegisterContent(fromRegisterIndex + 1):
+                        exitError(f'Instruction \'{type(_instruction).__name__}\' expects a couple of {fieldType}, but (\'{self._getRegisterContent(fromRegisterIndex)}\', \'{self._getRegisterContent(fromRegisterIndex + 1)}\') provided', ExitCode.INVALID_REGISTER_TYPE)
+                if not self._isSubclass(self._getRegisterContent(toRegisterIndex), classType):
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{classType}\' on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+                if self._getRegisterContent(fromRegisterIndex) != fieldType:
+                    exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{fieldType}\' on register \'{fromRegisterIndex}\', but \'{self._getRegisterContent(fromRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
+            case _error:
+                exitError(f'Unhandled instruction22c subtype \'{_error}\'', ExitCode.UNHANDLED_CASE)
+
     def analyse(self, _instruction: Instruction, **kwargs) -> bool:
         """
         Main method that analyse the given instruction by redirecting it to the corresponding method.
@@ -520,11 +589,14 @@ class Analyse1(Analyser):
         predecessors: list[Instruction] = kwargs.get('predecessors', [])
 
         self._current = _instruction
-        if not self._setMemory(predecessors):
-            return False
 
         if self._verbose:
             self._printInstruction(_instruction)
+
+        if not self._setMemory(predecessors):
+            return False
+
+        if self._verbose and _instruction.get_name() != 'return-void':
             self._printMemory()
 
         match _instruction:
@@ -717,7 +789,7 @@ class Analyse1(Analyser):
             #   5e -> `iput-char`
             #   5f -> `iput-short`
             case Instruction22c() as _inst22c:
-                self._unhandled(_inst22c)
+                self._analyse22c(_inst22c)
 
             # Instruction 22cs:
             # TODO https://source.android.com/devices/tech/dalvik/instruction-formats?hl=en#format-ids
