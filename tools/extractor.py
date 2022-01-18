@@ -40,7 +40,7 @@ def printAPKInfos(_infos: APKInfos):
 def extractInfosFromAPK(_APKPath: str) -> APKInfos:
     try:
         apk = APK(_APKPath)
-
+        apk.get_requested_aosp_permissions()
         return {
             APKKeys.APK: apk,
             APKKeys.PATH: _APKPath,

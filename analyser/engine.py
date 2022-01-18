@@ -79,7 +79,7 @@ def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analy
                 while len(stack) != 0:
                     currentInstruction: Instruction = stack.pop(0)
                     predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
-                    if analyser.analyse(currentInstruction, predecessors):
+                    if analyser.analyse(currentInstruction, predecessors=predecessors):
                         stack.extend(flow[currentInstruction])
 
                 # analyser.reportMethod()

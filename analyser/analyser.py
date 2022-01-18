@@ -129,7 +129,7 @@ class Analyser:
 
     def _putStack(self, _value: str) -> None:
         assert self._current is not None, f'Current instruction is None'
-        self._mem[self._current].append(_value)
+        self._stack[self._current].append(_value)
 
     def _popStack(self) -> str:
         assert self._current is not None, f'Current instruction is None'
@@ -170,8 +170,11 @@ class Analyser:
         )
 
     def _printMemory(self):
-        print(f'\tMemory:')
+        print('\tMemory:')
         [print(f'\t\tv{x}: \'{self._getRegisterContent(x)}\'') for x in range(len(self._mem[self._current]))]
+        print('\tStack [')
+        [print(f'\t\t\'{self._stack[self._current][x]}\'') for x in range(len(self._stack[self._current]))]
+        print('\t]')
 
     # UTILS
 
@@ -229,6 +232,52 @@ class Analyser:
             _second = _second[1:]
             _secondCounter += 1
         return (_firstCounter, _first), (_secondCounter, _second)
+
+    def _findClosestParent(self, _first: str, _seccond: str) -> str:
+        if _first is SMALI_OBJECT_TYPE or _seccond is SMALI_OBJECT_TYPE:
+            return SMALI_OBJECT_TYPE
+
+        if _first == _seccond:
+            return _first
+
+        todoFirst: set[str] = set()
+        todoFirst.add(_first)
+        todoSecond: list[str] = [_seccond]
+        doneFirst: set[str] = set()
+        while len(todoFirst) > 0:
+            curr = todoFirst.pop()
+            if curr not in doneFirst and curr != SMALI_OBJECT_TYPE:
+                _a: ClassAnalysis = self._analysis.get_class_analysis(curr)
+                doneFirst.add(curr)
+                if _a is not None:
+                    todoFirst.add(_a.extends)
+                    [todoFirst.add(x) for x in _a.implements]
+        while len(todoSecond) > 0:
+            curr = todoFirst.pop(0)
+            if curr in doneFirst:
+                return curr
+            _a: ClassAnalysis = self._analysis.get_class_analysis(curr)
+            if _a is not None:
+                todoSecond.append(_a.extends)
+                todoSecond.extend(_a.implements)
+
+        return SMALI_OBJECT_TYPE
+
+    def _compatibleType(self, _first: str, _second: str) -> str:
+        if _first.startswith(SMALI_ARRAY_MARKER) or _second.startswith(SMALI_ARRAY_MARKER):
+            (_firstCount, _firstValue), (_secondCounter, _secondValue) = self._decomposeArrays(_first, _second)
+            if _firstCount != _secondCounter:
+                exitError(f'Array dimensions differs ({_firstCount} != {_secondCounter})', ExitCode.MEMORY_ERROR)
+
+        if _second.startswith(SMALI_OBJECT_MARKER):
+            if not _first.startswith(SMALI_OBJECT_MARKER):
+                exitError(f'Memory type mismatch between \'{_second}\' and \'{_first}\'', ExitCode.MEMORY_ERROR)
+            # Check if the provided object is a subtype of the parameter
+            return self._findClosestParent(_first, _second)
+        # Else check if the primitive types match
+        if not self._isValidPrimitiveType(_first, _second):
+            exitError(f'Memory type mismatch between \'{_second}\' and \'{_first}\'', ExitCode.MEMORY_ERROR)
+        return _first
 
     def _validateParameterType(self, _firstIndex: int, _firstValue: str, _secondValue: str) -> None:
         if _firstValue.startswith(SMALI_ARRAY_MARKER) or _secondValue.startswith(SMALI_ARRAY_MARKER):

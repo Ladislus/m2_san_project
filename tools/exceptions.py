@@ -39,6 +39,7 @@ class ExitCode(Enum):
     INVALID_REGISTER_TYPE = auto()
     DIVIDE_BY_ZERO = auto()
     NO_MEMORY = auto()
+    MEMORY_ERROR = auto()
 
 
 class Colors:

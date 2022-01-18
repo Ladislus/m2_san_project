@@ -38,23 +38,51 @@ class Analyse1(Analyser):
         elif self._current not in self._mem.keys():
             # Union des predecesseurs
             memory: Analyse1MemoryContentType or None = None
+            stack: Analyse1StackContentType or None = None
             for predecessor in _predecessors:
                 if predecessor not in self._mem.keys():
                     continue
                 elif memory is None:
-                    memory = self._mem[predecessor]
+                    memory = self._mem[predecessor].copy()
+                    stack = self._stack[predecessor].copy()
                 else:
-                    # TODO FUUUUUUUUUUUUUUUUUUSION !
-                    pass
-            if memory is None:
-                exitError(f'No predecessor memory for instruction {self._current}', ExitCode.NO_MEMORY)
+                    predecessorMemory: Analyse1MemoryContentType = self._mem[predecessor]
+                    predecessorStack: Analyse1StackContentType = self._stack[predecessor]
+                    if len(predecessorMemory) != len(memory):
+                        exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                    if len(stack) != len(predecessorStack):
+                        exitError(f'Stack size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                    for index, value in enumerate(predecessorMemory):
+                        memory[index] = self._compatibleType(memory[index], value)
+                    for index, value in enumerate(predecessorStack):
+                        stack[index] = self._compatibleType(stack[index], value)
+            if memory is None or stack is None:
+                exitError(f'No predecessor memory or stack for instruction {self._current}', ExitCode.NO_MEMORY)
+            self._mem[self._current] = memory
+            self._stack[self._current] = stack
             return True
         # We already analysed this node
         else:
-            # TODO
-            # Check difference between predecessors
-            # True if changed, False else
-            return True
+            previousMemory: Analyse1MemoryContentType = self._mem[self._current].copy()
+            previousStack: Analyse1StackContentType = self._stack[self._current].copy()
+            for predecessor in _predecessors:
+                predecessorMemory: Analyse1MemoryContentType = self._mem[predecessor]
+                predecessorStack: Analyse1StackContentType = self._stack[predecessor]
+                if len(predecessorMemory) != len(self._mem[self._current]):
+                    exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                if len(self._stack[self._current]) != len(predecessorStack):
+                    exitError(f'Stack size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                for index, value in enumerate(predecessorMemory):
+                    self._putRegisterContent(index, self._compatibleType(self._getRegisterContent(index), value))
+                for index, value in enumerate(predecessorStack):
+                    self._stack[self._current][index] = self._compatibleType(self._stack[self._current][index], value)
+            # Compare new memory
+            if previousMemory != self._mem[self._current]:
+                return True
+            # Compare new stack
+            if previousStack != self._stack[self._current]:
+                return True
+            return False
 
     # DONE
     def _analyse10x(self, _instruction: Instruction10x) -> None:
@@ -233,6 +261,25 @@ class Analyse1(Analyser):
             # self._mem[registerIndex] = SMALI_INT_TYPE
             self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
 
+    def _analyse21s(self, _instruction: Instruction21s) -> None:
+        self._lastWasInvokeKindOrFillNewArray = False
+        registerIndex: int = _instruction.AA
+        # const-wide/32 write on a pair of registers
+        if _instruction.get_name() == 'const-wide/16':
+            if not self._isValidLocalRegisterNumber(registerIndex + 1):
+                exitError(
+                    f'Instruction \'{type(_instruction).__name__}\' uses invalid register number pair ({registerIndex}, {registerIndex + 1})',
+                    ExitCode.INVALID_REGISTER_INDEX)
+            # self._mem[registerIndex] = SMALI_INT_TYPE
+            # self._mem[registerIndex + 1] = SMALI_INT_TYPE
+            self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
+            self._putRegisterContent(registerIndex + 1, SMALI_INT_TYPE)
+        else:
+            if not self._isValidLocalRegisterNumber(registerIndex):
+                self._Error_invalidRegisterNumber(_instruction, registerIndex)
+            # self._mem[registerIndex] = SMALI_INT_TYPE
+            self._putRegisterContent(registerIndex, SMALI_INT_TYPE)
+
     # TODO
     def _analyse11x(self, _instruction: Instruction11x) -> None:
         # Get the register index
@@ -285,9 +332,8 @@ class Analyse1(Analyser):
                     exitError(
                         f'Instruction \'{type(_instruction).__name__}\' (return) can\'t return a non-primitive type \'{returnedItemType}\'',
                         ExitCode.RETURN_ON_OBJECT_TYPE)
-                # TODO check if object is a subtype
                 # Check if the returned type is compatible with the method return type
-                if returnedItemType != self._methodInfos[MethodKeys.RETURNTYPE]:
+                if  not self._isSubclass(returnedItemType, self._methodInfos[MethodKeys.RETURNTYPE]):
                     exitError(
                         f'Method \'{self._methodInfos[MethodKeys.NAME]}\' is supposed to return \'{self._methodInfos[MethodKeys.RETURNTYPE]}\', but \'{returnedItemType}\' given',
                         ExitCode.RETURN_TYPE_MISMATCH)
@@ -465,18 +511,21 @@ class Analyse1(Analyser):
         # self._mem[_toRegisterIndex] = SMALI_INT_TYPE
         self._putRegisterContent(_toRegisterIndex, SMALI_INT_TYPE)
 
-    def analyse(self, _instruction: Instruction, _predecessors: list[Instruction]) -> bool:
+    def analyse(self, _instruction: Instruction, **kwargs) -> bool:
         """
         Main method that analyse the given instruction by redirecting it to the corresponding method.
         :param _instruction: The instruction to analyse
         """
+        assert 'predecessors' in kwargs
+        predecessors: list[Instruction] = kwargs.get('predecessors', [])
+
+        self._current = _instruction
+        if not self._setMemory(predecessors):
+            return False
+
         if self._verbose:
             self._printInstruction(_instruction)
             self._printMemory()
-
-        self._current = _instruction
-        if not self._setMemory(_predecessors):
-            return False
 
         match _instruction:
             # Instruction 10t:
@@ -620,7 +669,7 @@ class Analyse1(Analyser):
             # 13 -> `const/16 vAA, #+BBBB
             # 16 -> `const-wide/16 vAA, #+BBBB
             case Instruction21s() as _inst21s:
-                self._unhandled(_inst21s)
+                self._analyse21s(_inst21s)
 
             # Instruction 21t:
             # if-testz vAA, +BBBB
