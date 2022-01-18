@@ -1,40 +1,31 @@
+from androguard.core.analysis.analysis import Analysis
 from androguard.core.bytecodes.dvm import ClassDefItem, DalvikVMFormat
+from analyser.engine import analyse
+from tools import parse, extractInfosFromAPK, APKKeys, ClassDefItemNotFoundException, ExitCode, APKInfos
+from tools.exceptions import exitException
 
-from tools import parse, extract, APKKeys, ClassDefItemNotFoundException, ExitCode, InfoDict
-from analyser import analyze1
+_analysis: Analysis = Analysis()
 
 
-def findCorrespondingClass(ClassName: str, dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
+def findCorrespondingClass(_ClassName: str, _dalvikFormats: list[DalvikVMFormat]) -> list[ClassDefItem]:
+    global _analysis
     foundItems: list[ClassDefItem] = []
-    for dalvikFormat in dalvikFormats:
+    for dalvikFormat in _dalvikFormats:
+        # While searching for the class, create the analysis object
+        _analysis.add(dalvikFormat)
+
         for currentClass in dalvikFormat.get_classes():
             cleanedName: str = currentClass.get_name().split('/')[-1][:-1]
-            if cleanedName == ClassName:
+            if cleanedName == _ClassName:
                 foundItems.append(currentClass)
     if len(foundItems) == 0:
-        raise ClassDefItemNotFoundException(f'Class "{ClassName}" not found')
+        raise ClassDefItemNotFoundException(f'Class "{_ClassName}" not found')
     return foundItems
 
 
-def analyse(classDefItem: ClassDefItem, flag: int, infos: InfoDict, inputFile: str | None):
-    match flag:
-        case 1:
-            analyze1(classDefItem, verbose=True)
-        case 2:
-            pass
-        case 3:
-            # if inputFile is None:
-            #     print(f'No input file provided for analysis 3')
-            #     exit(ExitCode.NO_INPUT_FILE_GIVEN)
-            # analyse3(infos, inputFile)
-            pass
-        case _:
-            raise ValueError('Invalid flag')
-
-
 if __name__ == '__main__':
-    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile = parse()
-    infosOfTheAPK: InfoDict = extract(pathToTheAPK)
+    pathToTheAPK, ClassNameToAnalyse, analyseTypeFlag, inputFile, verbose = parse()
+    infosOfTheAPK: APKInfos = extractInfosFromAPK(pathToTheAPK)
 
     try:
         classDefItems: list[ClassDefItem] = findCorrespondingClass(ClassNameToAnalyse, infosOfTheAPK[APKKeys.DALVIKVMFORMAT])
@@ -45,7 +36,6 @@ if __name__ == '__main__':
                 print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
-        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, inputFile)
+        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, _analysis, inputFile, _verbose=verbose)
     except ClassDefItemNotFoundException as e:
-        print(e)
-        exit(ExitCode.CLASS_NOT_FOUND)
+        exitException(e, ExitCode.CLASS_NOT_FOUND)

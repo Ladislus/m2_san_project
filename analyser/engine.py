@@ -1,29 +1,91 @@
-from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod
+from androguard.core.analysis.analysis import Analysis
+from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod, Instruction21t, Instruction22t, Instruction30t, \
+    Instruction20t, Instruction10t, Instruction, Instruction10x, Instruction11x
+from tools import APKInfos, extractInfosFromMethod, MethodInfos, exitError, ExitCode, getOffsetFromGoto, getOffsetFromIf
+from .analyse1 import Analyse1
+
+# Type aliases
+FlowType: type = dict[Instruction, list[Instruction]]
+StackType: type = list[Instruction]
 
 
-def analyze1(classDefItem: ClassDefItem, flag: bool = False, verbose: bool = False):
-    methods: list[EncodedMethod] = classDefItem.get_methods()
+def _buildFlowFromMethod(_method: EncodedMethod) -> (StackType, FlowType):
+    candidate: FlowType = {}
+    offset: int = 0
+    stack: StackType = []
+    for inst in _method.get_instructions():
+        match inst:
+            # Case 'GOTO'
+            case Instruction10t() | Instruction20t() | Instruction30t() as _currentInstruction:
+                # Add the instruction of the method
+                if len(stack) == 0:
+                    stack.append(_currentInstruction)
+                nextInstructionOffset: int = offset + (getOffsetFromGoto(_currentInstruction) * 2)
+                successorGoto: Instruction = _method.get_instruction(0, off=nextInstructionOffset)
+                candidate[_currentInstruction] = [successorGoto]
+            # Case 'IF'
+            case Instruction21t() | Instruction22t() as _currentInstruction:
+                # Add the instruction of the method
+                if len(stack) == 0:
+                    stack.append(_currentInstruction)
+                nextInstructionOffset: int = offset + _currentInstruction.get_length()
+                successorFallthrough: Instruction = _method.get_instruction(0, off=nextInstructionOffset)
+                ifInstructionOffset: int = offset + (getOffsetFromIf(_currentInstruction) * 2)
+                successorIf: Instruction = _method.get_instruction(0, off=ifInstructionOffset)
+                candidate[_currentInstruction] = [successorFallthrough, successorIf]
+            # Case 'RETURN-VOID'
+            case Instruction10x() as _currentInstruction if _currentInstruction.get_op_value() == 0xe:
+                # Add the instruction of the method
+                if len(stack) == 0:
+                    stack.append(inst)
+                candidate[_currentInstruction] = []
+            # CASE 'RETURN-kind' or 'THROW'
+            case Instruction11x() as _currentInstruction if _currentInstruction.get_op_value() in [0xf, 0x10, 0x11, 0x27]:
+                # Add the instruction of the method
+                if len(stack) == 0:
+                    stack.append(_currentInstruction)
+                candidate[_currentInstruction] = []
+            # Else
+            case _ as _currentInstruction:
+                # Add the instruction of the method
+                if len(stack) == 0:
+                    stack.append(_currentInstruction)
+                nextInstructionOffset: int = offset + _currentInstruction.get_length()
+                successor: Instruction = _method.get_instruction(0, off=nextInstructionOffset)
+                candidate[_currentInstruction] = [successor]
+        offset += inst.get_length()
+
+    return stack, candidate
+
+
+def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analysis: Analysis, _inputFile: str | None, _verbose: bool):
+    # Extract all the methods from the class
+    methods: list[EncodedMethod] = _classDefItem.get_methods()
 
     for currentMethod in methods:
         # Load the method infos if not already loaded
         currentMethod.load()
 
-        localRegisterCount: int = currentMethod.get_locals()
-        registerInformations = currentMethod.get_information()
-        parameterCount: int = len(registerInformations['params']) if 'params' in registerInformations.keys() else 0
-        returnType: str = registerInformations['return']
+        # Extract the method infos for the instruction analysis
+        methodInfos: MethodInfos = extractInfosFromMethod(currentMethod)
 
-        if verbose:
-            print(
-                f'Method: {currentMethod.get_name()}\n'
-                f'\tLocal register count: {localRegisterCount}\n'
-                f'\tParameter count: {parameterCount}\n'
-                f'\tReturn type: {returnType}\n'
-            )
+        match _flag:
+            case 1:
+                analyser: Analyse1 = Analyse1(_apkInfos, methodInfos, _analysis, _verbose)
+                if _verbose:
+                    currentMethod.show()
+                stack, flow = _buildFlowFromMethod(currentMethod)
 
-            for instructions in currentMethod.get_instructions():
-                print(f'\tInstruction : {instructions}')
-                print(f'\t\tName of instruction : {instructions.get_name()}')
-                print(f'\t\tInt op value : {hex(instructions.get_op_value())}')
-                print(f'\t\tHex : {instructions.get_hex()}')
-            currentMethod.show()
+                while len(stack) != 0:
+                    currentInstruction: Instruction = stack.pop(0)
+                    predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
+                    if analyser.analyse(currentInstruction, predecessors=predecessors):
+                        stack.extend(flow[currentInstruction])
+
+                # analyser.reportMethod()
+            case 2:
+                exitError(f'Analyse {_flag} not implemented in engine.analyse()', ExitCode.ANALYSE_NOT_IMPLEMENTED)
+            case 3:
+                exitError(f'Analyse {_flag} not implemented in engine.analyse()', ExitCode.ANALYSE_NOT_IMPLEMENTED)
+            case _:
+                exitError(f'Unknown flag {_flag} in engine.analyse()', ExitCode.UNHANDLED_CASE)
