@@ -22,6 +22,18 @@ class Analyse1(Analyser):
         [print(f'\t\t\'{self._stack[self._current][x]}\'') for x in range(len(self._stack[self._current]))]
         print('\t]')
 
+    def _memoryReport(self):
+        self._report += '\t\tMemory before:\n'
+        for x in range(len(self._mem[self._current])):
+            self._report += f'\t\t\t\tv{x}: \'{self._getRegisterContent(x)}\'\n'
+        self._report += '\t\tStack before [\n'
+        for x in range(len(self._stack[self._current])):
+            f'\t\t\t\'{self._stack[self._current][x]}\'\n'
+        self._report += '\t\t]\n'
+
+    def collect(self) -> str:
+        return self._report
+
     def _initMemoryFirst(self) -> None:
         assert self._current is not None, f'Current instruction is None'
         # Initialyse memory
@@ -395,7 +407,7 @@ class Analyse1(Analyser):
                         f'Instruction \'{type(_instruction).__name__}\' (return) can\'t return a non-primitive type \'{returnedItemType}\'',
                         ExitCode.RETURN_ON_OBJECT_TYPE)
                 # Check if the returned type is compatible with the method return type
-                if  not self._isSubclass(returnedItemType, self._methodInfos[MethodKeys.RETURNTYPE]):
+                if not self._isSubclass(returnedItemType, self._methodInfos[MethodKeys.RETURNTYPE]):
                     exitError(
                         f'Method \'{self._methodInfos[MethodKeys.NAME]}\' is supposed to return \'{self._methodInfos[MethodKeys.RETURNTYPE]}\', but \'{returnedItemType}\' given',
                         ExitCode.RETURN_TYPE_MISMATCH)
@@ -633,12 +645,15 @@ class Analyse1(Analyser):
 
         if self._verbose:
             self._printInstruction(_instruction)
+        self._instructionReport(_instruction)
 
         if not self._setMemory(predecessors):
             return False
 
         if self._verbose and _instruction.get_name() != 'return-void':
             self._printMemory()
+        if _instruction.get_name() != 'return-void':
+            self._memoryReport()
 
         match _instruction:
             # Instruction 10t:
