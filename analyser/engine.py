@@ -3,7 +3,9 @@ from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod, Instructi
     Instruction20t, Instruction10t, Instruction, Instruction10x, Instruction11x
 from analyser.analyse1 import Analyse1
 from analyser.analyse2 import Analyse2
-from tools import APKInfos, extractInfosFromMethod, MethodInfos, exitError, ExitCode, getOffsetFromGoto, getOffsetFromIf
+from analyser.analyse3 import Analyse3
+from tools import APKInfos, extractInfosFromMethod, MethodInfos, exitError, ExitCode, getOffsetFromGoto, \
+    getOffsetFromIf, printAPKInfos, APKKeys
 
 FlowType: type = dict[Instruction, list[Instruction]]
 StackType: type = list[Instruction]
@@ -59,42 +61,66 @@ def _buildFlowFromMethod(_method: EncodedMethod) -> (StackType, FlowType):
 
 
 def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analysis: Analysis, _inputFile: str | None, _verbose: bool):
-    # Extract all the methods from the class
-    methods: list[EncodedMethod] = _classDefItem.get_methods()
-
-    for currentMethod in methods:
-        # Load the method infos if not already loaded
-        currentMethod.load()
-
-        # Extract the method infos for the instruction analysis
-        methodInfos: MethodInfos = extractInfosFromMethod(currentMethod)
-
         match _flag:
             case 1:
-                analyser: Analyse1 = Analyse1(_apkInfos, methodInfos, _analysis, _verbose)
-                if _verbose:
-                    currentMethod.show()
-                stack, flow = _buildFlowFromMethod(currentMethod)
+                # Extract all the methods from the class
+                methods: list[EncodedMethod] = _classDefItem.get_methods()
+                for currentMethod in methods:
+                    # Load the method infos if not already loaded
+                    currentMethod.load()
 
-                while len(stack) != 0:
-                    currentInstruction: Instruction = stack.pop(0)
-                    predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
-                    if analyser.analyse(currentInstruction, predecessors=predecessors):
-                        stack.extend(flow[currentInstruction])
+                    # Extract the method infos for the instruction analysis
+                    methodInfos: MethodInfos = extractInfosFromMethod(currentMethod)
+                    analyser: Analyse1 = Analyse1(_apkInfos, methodInfos, _analysis, _verbose)
+                    if _verbose:
+                        currentMethod.show()
+                    stack, flow = _buildFlowFromMethod(currentMethod)
 
-                # analyser.reportMethod()
+                    while len(stack) != 0:
+                        currentInstruction: Instruction = stack.pop(0)
+                        predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
+                        if analyser.analyse(currentInstruction, predecessors=predecessors):
+                            stack.extend(flow[currentInstruction])
+
+                    # analyser.reportMethod()
             case 2:
-                analyser: Analyse2 = Analyse2(_apkInfos, methodInfos, _analysis, _verbose)
-                if _verbose:
-                    currentMethod.show()
-                stack, flow = _buildFlowFromMethod(currentMethod)
+                # Extract all the methods from the class
+                methods: list[EncodedMethod] = _classDefItem.get_methods()
+                for currentMethod in methods:
+                    # Load the method infos if not already loaded
+                    currentMethod.load()
 
-                while len(stack) != 0:
-                    currentInstruction: Instruction = stack.pop(0)
-                    predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
-                    if analyser.analyse(currentInstruction, predecessors=predecessors):
-                        stack.extend(flow[currentInstruction])
+                    # Extract the method infos for the instruction analysis
+                    methodInfos: MethodInfos = extractInfosFromMethod(currentMethod)
+                    analyser: Analyse2 = Analyse2(_apkInfos, methodInfos, _analysis, _verbose)
+                    if _verbose:
+                        currentMethod.show()
+                    stack, flow = _buildFlowFromMethod(currentMethod)
+
+                    while len(stack) != 0:
+                        currentInstruction: Instruction = stack.pop(0)
+                        predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
+                        if analyser.analyse(currentInstruction, predecessors=predecessors):
+                            stack.extend(flow[currentInstruction])
             case 3:
-                exitError(f'Analyse {_flag} not implemented in engine.analyse()', ExitCode.ANALYSE_NOT_IMPLEMENTED)
+                # Extract all the methods from the class
+                methods: list[EncodedMethod] = _classDefItem.get_methods()
+                _collectedIntents: list[str] = []
+                for currentMethod in methods:
+                    # Load the method infos if not already loaded
+                    currentMethod.load()
+
+                    # Extract the method infos for the instruction analysis
+                    methodInfos: MethodInfos = extractInfosFromMethod(currentMethod)
+                    analyser: Analyse3 = Analyse3(_apkInfos, methodInfos, _analysis, _verbose)
+                    if _verbose:
+                        currentMethod.show()
+
+                    for instruction in currentMethod.get_instructions():
+                        analyser.analyse(instruction)
+                    _collectedIntents.extend(analyser.collect())
+                printAPKInfos(_apkInfos)
+                print('Intents:')
+                [print(f'\t{intent}') for intent in _collectedIntents]
             case _:
                 exitError(f'Unknown flag {_flag} in engine.analyse()', ExitCode.UNHANDLED_CASE)

@@ -12,7 +12,7 @@ class APKKeys(Enum):
     NAME = auto()
     VERSION = auto()
     PERMISSIONS = auto()
-    REQUESTEDPERMISSIONS = auto()
+    PERMISSIONSDETAILS = auto()
     DECLAREDPERMISSIONS = auto()
     DETAILEDDECLAREDPERMISSIONS = auto()
     ACTIVITIES = auto()
@@ -29,7 +29,7 @@ def printAPKInfos(_infos: APKInfos):
         f'\n\tPath: {_infos[APKKeys.PATH]}',
         f'\n\tVersion: { _infos[APKKeys.VERSION]}',
         f'\n\tPermissions: {_infos[APKKeys.PERMISSIONS]}',
-        f'\n\tRequested Permissions: {_infos[APKKeys.REQUESTEDPERMISSIONS]}',
+        f'\n\tDetailed Permissions: {_infos[APKKeys.PERMISSIONSDETAILS]}',
         f'\n\tDeclared Permissions: {_infos[APKKeys.DECLAREDPERMISSIONS]}',
         f'\n\tDetailed Declared Permissions: {_infos[APKKeys.DETAILEDDECLAREDPERMISSIONS]}',
         f'\n\tActivities: {_infos[APKKeys.ACTIVITIES]}',
@@ -40,14 +40,13 @@ def printAPKInfos(_infos: APKInfos):
 def extractInfosFromAPK(_APKPath: str) -> APKInfos:
     try:
         apk = APK(_APKPath)
-        apk.get_requested_aosp_permissions()
         return {
             APKKeys.APK: apk,
             APKKeys.PATH: _APKPath,
             APKKeys.NAME: apk.get_app_name(),
             APKKeys.VERSION: apk.get_target_sdk_version(),
             APKKeys.PERMISSIONS: apk.get_permissions(),
-            APKKeys.REQUESTEDPERMISSIONS: apk.get_requested_permissions(),
+            APKKeys.PERMISSIONSDETAILS: apk.get_details_permissions(),
             APKKeys.DECLAREDPERMISSIONS: apk.get_declared_permissions(),
             APKKeys.DETAILEDDECLAREDPERMISSIONS: apk.get_declared_permissions_details(),
             APKKeys.ACTIVITIES: apk.get_activities(),
