@@ -627,7 +627,7 @@ class Analyse1(Analyser):
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{classType}\' on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
                 if self._getRegisterContent(fromRegisterIndex) != fieldType:
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{fieldType}\' on register \'{fromRegisterIndex}\', but \'{self._getRegisterContent(fromRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
-                if self._getRegisterContent(toRegisterIndex).startswith(SMALI_OBJECT_MARKER):
+                if fieldType.startswith(SMALI_OBJECT_MARKER):
                     if not _instruction.get_name().endswith('-object'):
                         exitError(f'Instruction \'{type(_instruction).__name__}\' expects an object on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
             case _error:
