@@ -1,10 +1,10 @@
 from androguard.core.analysis.analysis import Analysis
 from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod, Instruction21t, Instruction22t, Instruction30t, \
     Instruction20t, Instruction10t, Instruction, Instruction10x, Instruction11x
+from analyser.analyse1 import Analyse1
+from analyser.analyse2 import Analyse2
 from tools import APKInfos, extractInfosFromMethod, MethodInfos, exitError, ExitCode, getOffsetFromGoto, getOffsetFromIf
-from .analyse1 import Analyse1
 
-# Type aliases
 FlowType: type = dict[Instruction, list[Instruction]]
 StackType: type = list[Instruction]
 
@@ -84,7 +84,16 @@ def analyse(_classDefItem: ClassDefItem, _flag: int, _apkInfos: APKInfos, _analy
 
                 # analyser.reportMethod()
             case 2:
-                exitError(f'Analyse {_flag} not implemented in engine.analyse()', ExitCode.ANALYSE_NOT_IMPLEMENTED)
+                analyser: Analyse2 = Analyse2(_apkInfos, methodInfos, _analysis, _verbose)
+                if _verbose:
+                    currentMethod.show()
+                stack, flow = _buildFlowFromMethod(currentMethod)
+
+                while len(stack) != 0:
+                    currentInstruction: Instruction = stack.pop(0)
+                    predecessors: list[Instruction] = [key for key, values in flow.items() if currentInstruction in values]
+                    if analyser.analyse(currentInstruction, predecessors=predecessors):
+                        stack.extend(flow[currentInstruction])
             case 3:
                 exitError(f'Analyse {_flag} not implemented in engine.analyse()', ExitCode.ANALYSE_NOT_IMPLEMENTED)
             case _:
