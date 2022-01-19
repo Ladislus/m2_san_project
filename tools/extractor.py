@@ -1,3 +1,4 @@
+from sys import stdout
 from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat, EncodedMethod

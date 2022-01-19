@@ -282,7 +282,6 @@ class Analyse2(Analyser):
                 # self._mem[registerIndex] = _instruction.cm.get_type(_instruction.BBBB)
                 self._putRegisterContent(registerIndex, (_instruction.cm.get_type(_instruction.BBBB, True)))
             case 'const-string':
-                print('Const-string analysis')
                 # Check that the register is a valid register
                 if not self._isValidLocalRegisterNumber(registerIndex):
                     self._Error_invalidRegisterNumber(_instruction, registerIndex)

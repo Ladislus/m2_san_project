@@ -1,3 +1,5 @@
+import sys
+
 from androguard.core.analysis.analysis import Analysis
 from androguard.core.bytecodes.dvm import ClassDefItem, EncodedMethod, Instruction21t, Instruction22t, Instruction30t, \
     Instruction20t, Instruction10t, Instruction, Instruction10x, Instruction11x
@@ -148,8 +150,11 @@ def analyse(_classDefItem: ClassDefItem, _classNameToAnalyse: str, _flag: int, _
                 for instruction in currentMethod.get_instructions():
                     analyser.analyse(instruction)
                 _collectedIntents.extend(analyser.collect())
-            printAPKInfos(_apkInfos)
-            print('Intents:')
-            [print(f'\t{intent}') for intent in _collectedIntents]
+            with open(f'{_classNameToAnalyse}.report', 'w') as f:
+                sys.stdout = f
+                print(f'Analysis 3 on class \'{_classNameToAnalyse}\'\n')
+                printAPKInfos(_apkInfos)
+                print('\nIntents:')
+                [print(f'\t{intent}') for intent in _collectedIntents]
         case _:
             exitError(f'Unknown flag {_flag} in engine.analyse()', ExitCode.UNHANDLED_CASE)
