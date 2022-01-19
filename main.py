@@ -36,6 +36,6 @@ if __name__ == '__main__':
                 print(f'\t{x}')
             exit(ExitCode.MULTIPLE_CLASSES_FOUND)
 
-        analyse(classDefItems[0], analyseTypeFlag, infosOfTheAPK, _analysis, inputFile, _verbose=verbose)
+        analyse(classDefItems[0], ClassNameToAnalyse, analyseTypeFlag, infosOfTheAPK, _analysis, inputFile, _verbose=verbose)
     except ClassDefItemNotFoundException as e:
         exitException(e, ExitCode.CLASS_NOT_FOUND)

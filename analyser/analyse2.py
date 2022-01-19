@@ -47,6 +47,23 @@ class Analyse2(Analyser):
     def _getRegisterContentInitialised(self, registerIndex: int) -> bool:
         return self._getRegisterContent(registerIndex)[1]
 
+    def collect(self) -> str:
+        return self._report
+
+    def _memoryReport(self):
+        self._report += '\t\tMemory before:\n'
+        for x in range(len(self._mem[self._current])):
+            contentType: str = str(self._getRegisterContentType(x))
+            self._report += f'\t\t\t\tv{x}: \'{contentType}\''
+            if contentType.startswith(SMALI_OBJECT_MARKER):
+                self._report += f'\tIniatialised: {self._getRegisterContent(x)[1]}\n'
+            else:
+                self._report += '\n'
+        self._report += '\t\tStack before [\n'
+        for x in range(len(self._stack[self._current])):
+            f'\t\t\t\'{self._stack[self._current][x]}\'\n'
+        self._report += '\t\t]\n'
+
     def _putStack(self, _value: Analyse2StackContentType) -> None:
         assert self._current is not None, f'Current instruction is None'
         self._stack[self._current].append(_value)
@@ -657,12 +674,15 @@ class Analyse2(Analyser):
 
         if self._verbose:
             self._printInstruction(_instruction)
+        self._instructionReport(_instruction)
 
         if not self._setMemory(predecessors):
             return False
 
         if self._verbose and _instruction.get_name() != 'return-void':
             self._printMemory()
+        if _instruction.get_name() != 'return-void':
+            self._memoryReport()
 
         match _instruction:
             # Instruction 10t:

@@ -47,11 +47,17 @@ class Analyser:
         self._verbose = verbose
         self._lastWasInvokeKindOrFillNewArray: bool = False
         self._current: Instruction or None = None
+        self._report = ''
 
     def analyse(self, instruction: Instruction, **kwargs) -> bool:
         exitError('Method `analyse()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
         # Placeholder return to please the linter
         return True
+
+    def collect(self) -> str:
+        exitError('Method `collect()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
+        # Placeholder return to please the linter
+        return ''
 
     # CHECKERS
 
@@ -117,7 +123,8 @@ class Analyser:
                     [todo.add(x) for x in _a.implements]
                 else:
                     # TODO Better analysis
-                    print(f'{Colors.WARNING}Couldn\'t find analysis for \'{curr}\', defaulting return to True{Colors.ENDC}')
+                    if self._verbose:
+                        print(f'{Colors.WARNING}Couldn\'t find analysis for \'{curr}\', defaulting return to True{Colors.ENDC}')
                     return True
         return _superclassName in done
 
@@ -172,6 +179,16 @@ class Analyser:
             f'\tOutput: \'{_instruction.get_output()}\'\n'
             f'\tSize: \'{_instruction.get_length()}\''
         )
+
+    def _instructionReport(self, _instruction: Instruction) -> None:
+        self._report += '\tInstruction: \n' \
+                       f'\t\tName: \'{_instruction.get_name()}\'\n' \
+                       f'\t\tOP: \'{hex(_instruction.get_op_value())}\'\n' \
+                       f'\t\tOutput: \'{_instruction.get_output()}\'\n' \
+                       f'\t\tSize: \'{_instruction.get_length()}\'\n'
+
+    def _memoryReport(self):
+        exitError('Method `_memoryReport()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)
 
     def _printMemory(self):
         exitError('Method `_printMemory()` from base class Analyser shoudn\'t be called', ExitCode.BASE_CLASS_CALL)

@@ -6,10 +6,8 @@ from .analyser import Analyser
 
 class Analyse3(Analyser):
     def __init__(self, apkInfos: APKInfos, methodInfos: MethodInfos, analysis: Analysis, verbose: bool):
-
         self._data: dict[int, str] = {}
         self._actions: list[str] = []
-
         super().__init__({}, {}, apkInfos, methodInfos, analysis, verbose)
 
     def _analyseConstString(self, _instruction: Instruction21c) -> None:

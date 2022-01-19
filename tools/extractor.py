@@ -1,3 +1,4 @@
+from sys import stdout
 from typing import Any
 from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat, EncodedMethod
@@ -27,7 +28,7 @@ def printAPKInfos(_infos: APKInfos):
         f'APK Infos:',
         f'\n\tName: {_infos[APKKeys.NAME]}',
         f'\n\tPath: {_infos[APKKeys.PATH]}',
-        f'\n\tVersion: { _infos[APKKeys.VERSION]}',
+        f'\n\tVersion: {_infos[APKKeys.VERSION]}',
         f'\n\tPermissions: {_infos[APKKeys.PERMISSIONS]}',
         f'\n\tDetailed Permissions: {_infos[APKKeys.PERMISSIONSDETAILS]}',
         f'\n\tDeclared Permissions: {_infos[APKKeys.DECLAREDPERMISSIONS]}',
@@ -62,7 +63,11 @@ def extractInfosFromAPK(_APKPath: str) -> APKInfos:
 class MethodKeys(Enum):
     CLASSNAME = auto()
     NAME = auto()
+    CONSTRUCTOR = auto()
     STATIC = auto()
+    FINAL = auto()
+    SYNCHRONIZED = auto()
+    ACCESS = auto()
     LOCALREGISTERCOUNT = auto()
     LOCALREGISTER = auto()
     PARAMETERCOUNT = auto()
@@ -78,7 +83,11 @@ def printMethodInfos(_infos: MethodInfos):
         f'Method Infos:',
         f'\n\tClass: {_infos[MethodKeys.CLASSNAME]}',
         f'\n\tName: {_infos[MethodKeys.NAME]}',
+        f'\n\tConstructor: {_infos[MethodKeys.CONSTRUCTOR]}',
         f'\n\tStatic: {_infos[MethodKeys.STATIC]}',
+        f'\n\tFinal: {_infos[MethodKeys.FINAL]}',
+        f'\n\tSynchronized: {_infos[MethodKeys.SYNCHRONIZED]}',
+        f'\n\tAccess: {_infos[MethodKeys.ACCESS]}',
         f'\n\tLocal Register Count: {_infos[MethodKeys.LOCALREGISTERCOUNT]}',
         f'\n\tLocal Register: {_infos[MethodKeys.LOCALREGISTER]}',
         f'\n\tParameter Count: {_infos[MethodKeys.PARAMETERCOUNT]}',
@@ -140,10 +149,17 @@ def _humanParametersTypesToSmaliTypes(_types: list[(int, str)]) -> list[(int, st
 def extractInfosFromMethod(_method: EncodedMethod) -> MethodInfos:
     registerInformations = _method.get_information()
 
+    accessFlags = _method.get_access_flags_string()
+    acces = 'Private' if ACCESS_PRIVATE in accessFlags else 'Public' if ACCESS_PUBLIC in accessFlags else 'Protected' if ACCESS_PROTECTED in accessFlags else 'Package'
+
     return {
         MethodKeys.CLASSNAME: _method.get_class_name().removesuffix(';'),
         MethodKeys.NAME: _method.get_name(),
-        MethodKeys.STATIC: 'static' in _method.get_access_flags_string(),
+        MethodKeys.STATIC: ACCESS_STATIC in accessFlags,
+        MethodKeys.CONSTRUCTOR: ACCESS_CONSTRUCTOR in accessFlags,
+        MethodKeys.FINAL: ACCESS_FINAL in accessFlags,
+        MethodKeys.SYNCHRONIZED: ACCESS_SYNCHRONIZED in accessFlags,
+        MethodKeys.ACCESS: acces,
         MethodKeys.LOCALREGISTERCOUNT: _method.get_locals() + 1,
         MethodKeys.LOCALREGISTER: registerInformations['registers'],
         MethodKeys.PARAMETERCOUNT: len(registerInformations['params']) if 'params' in registerInformations.keys() else 0,
