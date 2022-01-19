@@ -73,15 +73,15 @@ class Analyse1(Analyser):
                     predecessorMemory: Analyse1SubmemoryType = self._mem[predecessor]
                     predecessorStack: Analyse1SubstackType = self._stack[predecessor]
                     if len(predecessorMemory) != len(memory):
-                        exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                        exitError(f'Memory size mismatch between \'{predecessor.get_name()}\' and \'{self._current.get_name()}\'', ExitCode.MEMORY_ERROR)
                     if len(stack) != len(predecessorStack):
-                        exitError(f'Stack size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                        exitError(f'Stack size mismatch between \'{predecessor.get_name()}\' and \'{self._current.get_name()}\'', ExitCode.MEMORY_ERROR)
                     for index, value in enumerate(predecessorMemory):
                         memory[index] = self._compatibleType(memory[index], value)
                     for index, value in enumerate(predecessorStack):
                         stack[index] = self._compatibleType(stack[index], value)
             if memory is None or stack is None:
-                exitError(f'No predecessor memory or stack for instruction {self._current}', ExitCode.NO_MEMORY)
+                exitError(f'No predecessor memory or stack for instruction \'{self._current.get_name()}\'', ExitCode.NO_MEMORY)
             self._mem[self._current] = memory
             self._stack[self._current] = stack
             return True
@@ -93,9 +93,9 @@ class Analyse1(Analyser):
                 predecessorMemory: Analyse1SubmemoryType = self._mem[predecessor]
                 predecessorStack: Analyse1SubstackType = self._stack[predecessor]
                 if len(predecessorMemory) != len(self._mem[self._current]):
-                    exitError(f'Memory size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                    exitError(f'Memory size mismatch between \'{predecessor}\' and \'{self._current}\'', ExitCode.MEMORY_ERROR)
                 if len(self._stack[self._current]) != len(predecessorStack):
-                    exitError(f'Stack size mismatch between {predecessor} and {self._current}', ExitCode.MEMORY_ERROR)
+                    exitError(f'Stack size mismatch between \'{predecessor.get_name()}\' and \'{self._current.get_name()}\'', ExitCode.MEMORY_ERROR)
                 for index, value in enumerate(predecessorMemory):
                     self._putRegisterContent(index, self._compatibleType(self._getRegisterContent(index), value))
                 for index, value in enumerate(predecessorStack):
@@ -627,7 +627,7 @@ class Analyse1(Analyser):
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{classType}\' on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
                 if self._getRegisterContent(fromRegisterIndex) != fieldType:
                     exitError(f'Instruction \'{type(_instruction).__name__}\' expects a \'{fieldType}\' on register \'{fromRegisterIndex}\', but \'{self._getRegisterContent(fromRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
-                if self._getRegisterContent(toRegisterIndex).startswith(SMALI_OBJECT_MARKER):
+                if fieldType.startswith(SMALI_OBJECT_MARKER):
                     if not _instruction.get_name().endswith('-object'):
                         exitError(f'Instruction \'{type(_instruction).__name__}\' expects an object on register \'{toRegisterIndex}\', but \'{self._getRegisterContent(toRegisterIndex)}\' provided', ExitCode.INVALID_REGISTER_TYPE)
             case _error:

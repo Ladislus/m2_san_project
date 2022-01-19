@@ -39,6 +39,16 @@ Pour vérifier qu'une erreur est bien parvenue, regardez le code de sortie.
 Toutes les APKs contenu dans le dossier APK (à la racine du dossier) peuvent être analysées avec les 3 analyses.
 Pour tester les erreurs, référez-vous au sous-dossier correspondant au nom de l'analyse.
 
+ - Analyse 1:
+   - APKs\Analyse1\Analyse1PredecessorsMergeError.apk: Erreur lors de la fusion des mémoires et stacks des prédécesseurs
+   - APKs\Analyse1\Analyse1WrongFieldType.apk: Tentavide de `iput` sur un champs du mauvais type
+   - APKs\Analyse1\Analyse1WrongReturnType.apk: L'objet retourné par la méthode n'est pas du bon type
+   - APKs\Analyse1\Analyse1WrongRegisterIndex.apk: Tentative d'utilisation d'un register nom défini
+ - Analyse 2: 
+   - APKs\Analyse\Analyse2NoInit.apk: Tentative d'utilisation d'un objet non initialisé
+  
+Il existe d'autres erreurs qui peuvent être trouvées par l'outil, mais nous n'avons pas d'APK permettant de les testées
+
 
 ## Instructions implémentées
 | Instruction         | OP Code - Nom                                                | Implémenté |
