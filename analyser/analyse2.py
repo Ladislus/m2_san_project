@@ -71,7 +71,7 @@ class Analyse2(Analyser):
         self._stack[self._current] = stack
 
     def _setMemory(self, _predecessors: list[Instruction]) -> bool:
-        # Memory dosen't matter in case of return-void
+        # Memory doesn't matter in case of return-void
         if self._current.get_name() == 'return-void':
             return True
 
@@ -647,7 +647,7 @@ class Analyse2(Analyser):
 
     def analyse(self, _instruction: Instruction, **kwargs) -> bool:
         """
-        Main method that analyse the given instruction by redirecting it to the corresponding method.
+        Main method that analyse the given instruction by redirecting it to the corresponding method
         :param _instruction: The instruction to analyse
         """
         assert 'predecessors' in kwargs
